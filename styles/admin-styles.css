@@ -1,0 +1,52 @@
+/* Admin Bar Styles */
+#wpadminbar {
+    background-color: #212121 !important;
+}
+#wpadminbar .ab-item,
+#wpadminbar a.ab-item {
+    color: white !important;
+}
+#wpadminbar .ab-item:hover,
+#wpadminbar a.ab-item:hover {
+    background-color: #ed9032 !important;
+}
+
+/* Custom Admin Menu Styles */
+#toplevel_page_configurador-sitio {
+    background-color: rgb(77, 59, 59);
+}
+#toplevel_page_configurador-sitio a {
+    color: white !important;
+}
+#toplevel_page_configurador-sitio a:hover,
+#toplevel_page_configurador-sitio a:active {
+    background-color: #981e1e !important;
+}
+#adminmenu .toplevel_page_configurador-sitio .wp-menu-image:before {
+    font-family: "dashicons";
+    content: "\f527"; /* dashicon ghost */
+    color: white !important;
+}
+#adminmenu .wp-has-current-submenu .wp-submenu .wp-submenu-head,
+#adminmenu .wp-menu-arrow,
+#adminmenu .wp-menu-arrow div,
+#adminmenu li.current a.menu-top,
+#adminmenu li.wp-has-current-submenu a.wp-has-current-submenu {
+    background-color: rgb(141, 112, 112) !important;
+    color: white !important;
+    font-size: 15px;
+}
+
+
+.wp-fast-setup-manager-container{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    flex-direction: row;
+}
+.wp-fast-setup-manager-container .card{
+    width: 33%;
+}
+.w-70 {
+    width: 70% !important;
+}
