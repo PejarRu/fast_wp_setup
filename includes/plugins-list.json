@@ -1,14 +1,13 @@
 {
     "plugins": {
       "elementor": "install_elementor",
-      "google-site-kit": "install_sitekit",
-      
+      "admin-site-enhancements": "admin-site-enhancements",
       "wordpress-seo": "install_seo",
+      "advanced-custom-fields": "install_advanced",
+      "google-site-kit": "install_sitekit",
       "advanced-google-recaptcha": "install_recaptcha",
       "translatepress-multilingual": "install_translatepress",
       "wp-whatsapp": "install_wpchat",
-      "advanced-custom-fields": "install_advanced",
-      "admin-site-enhancements": "install_ase",
       "updraftplus": "install_updraft",
       "wp-security-audit-log": "install_wplog",
       "complianz-gdpr": "install_complianz",

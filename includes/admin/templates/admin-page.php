@@ -164,6 +164,28 @@
             
             <input type="submit" name="create_pages" class="button button-primary" value="Crear Páginas">
             <input type="submit" name="delete_and_create_pages" class="button button-secondary" value="Borrar Todas las Páginas y Crear Nuevas">
+            <input type="submit" name="create_pages_and_menu" class="button button-primary" value="Crear Páginas y Menú">
+            <input type="submit" name="delete_and_create_pages_with_menu" class="button button-secondary" value="Borrar Todas las Páginas y Crear Nuevas con Menú">
+        </form>
+    </div>
+
+     <!-- Separado: Formulario para Crear Header -->
+     <div class="card w-70" style="margin-top:20px;">
+        <h2>Crear Header</h2>
+        <form method="post" action="">
+            <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+            <p>Utilice este botón para crear el header basado en header.json.</p>
+            <input type="submit" name="create_header" class="button button-primary" value="Crear Header">
+        </form>
+    </div>
+
+    <!-- Separado: Formulario para Crear Footer -->
+    <div class="card w-70" style="margin-top:20px;">
+        <h2>Crear Footer</h2>
+        <form method="post" action="">
+            <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+            <p>Utilice este botón para crear el footer basado en footer.json.</p>
+            <input type="submit" name="create_footer" class="button button-primary" value="Crear Footer">
         </form>
     </div>
 </div>

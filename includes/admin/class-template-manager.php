@@ -1,13 +1,13 @@
 <?php
 
 /* =========================
-   FUNCIONES PARA CARGAR Y CREAR PLANTILLAS DESDE .json
+   FUNCIONES PARA  CARGAR Y CREAR PLANTILLAS DESDE .json
    (Permitiendo múltiples 'single' con export_type)
    ========================= */
 class Template_Manager
 {
-    /**
-     * Lee un archivo .json (en la misma carpeta del plugin) y devuelve su contenido.
+    /**c
+     * Lee un archivo .json (en lar mismae carpeta dela plugin) y devuelve su contenido.
      */
     public function load_json_file($filename)
     {
@@ -107,6 +107,11 @@ class Template_Manager
             $meta_input['_elementor_export_type'] = $export_type;
         }
 
+        // --- NUEVA PARTE: Agregar imagen de footer si se especifica en el JSON ---
+        if ($json_type === 'footer' && !empty($decoded['footer_image'])) {
+            $meta_input['_elementor_footer_image'] = esc_url($decoded['footer_image']);
+        }
+
         // Quitar _elementor_pro_version si NO hay Elementor Pro y sí Pro Elements
         if (! did_action('elementor_pro/init') && class_exists('ProElements\Plugin')) {
             unset($meta_input['_elementor_pro_version']);
@@ -137,16 +142,16 @@ class Template_Manager
             echo '<div class="notice notice-error"><p>No se detecta Elementor Pro / Pro Elements activo. No se puede crear la cabecera.</p></div>';
             return;
         }
-        $existing = get_template_by_type('header');
+        $existing = $this->get_template_by_type('header');
         if ($existing) {
             echo '<div class="notice notice-warning"><p>Ya existe un header (ID ' . $existing->ID . '). No se crea otro.</p></div>';
             return;
         }
-        $json_content = load_json_file('header.json');
+        $json_content = $this->load_json_file('header.json');
         if (empty($json_content)) {
             return;
         }
-        insert_elementor_template($json_content, 'Cabecera JSON', 'header', 'include/general');
+        $this->insert_elementor_template($json_content, 'Cabecera JSON', 'header', 'include/general');
     }
 
     /**
@@ -158,17 +163,17 @@ class Template_Manager
             echo '<div class="notice notice-error"><p>No se detecta Elementor Pro / Pro Elements activo. No se puede crear el footer.</p></div>';
             return;
         }
-        $existing = get_template_by_type('footer');
+        $existing = $this->get_template_by_type('footer');
         if ($existing) {
             echo '<div class="notice notice-warning"><p>Ya existe un footer (ID ' . $existing->ID . '). No se crea otro.</p></div>';
             return;
         }
-        $json_content = load_json_file('footer.json');
+        $json_content = $this->load_json_file('footer.json');
         if (empty($json_content)) {
             return;
         }
 
-        insert_elementor_template($json_content, 'Footer JSON', 'footer', 'include/general');
+        $this->insert_elementor_template($json_content, 'Footer JSON', 'footer', 'include/general');
     }
 
 
@@ -183,17 +188,17 @@ class Template_Manager
             echo '<div class="notice notice-error"><p>No se detecta Elementor Pro / Pro Elements activo. No se puede crear la single page (contacto).</p></div>';
             return;
         }
-        $existing = get_template_by_type('single', 'contacto');
+        $existing = $this->get_template_by_type('single', 'contacto');
         if ($existing) {
             echo '<div class="notice notice-warning"><p>Ya existe la single de contacto (ID ' . $existing->ID . '). No se crea otra.</p></div>';
             return;
         }
-        $json_content = load_json_file('single.json');
+        $json_content = $this->load_json_file('single.json');
         if (empty($json_content)) {
             return;
         }
 
-        insert_elementor_template($json_content, 'Single Contacto JSON', 'single', 'include/singular/page', 'contacto');
+        $this->insert_elementor_template($json_content, 'Single Contacto JSON', 'single', 'include/singular/page', 'contacto');
     }
 
     public function create_personal_from_json()
@@ -207,19 +212,19 @@ class Template_Manager
         $condition     = 'include/general'; // Ajusta si quieres otra
 
         // Verifica si existe ya
-        $existing = get_template_by_type($template_type, $export_type);
+        $existing = $this->get_template_by_type($template_type, $export_type);
         if ($existing) {
             echo '<div class="notice notice-warning"><p>Ya existe la single "personal" (ID ' . $existing->ID . '). No se crea otra.</p></div>';
             return;
         }
         // Cargar el JSON
-        $json_content = load_json_file('personal.json');
+        $json_content = $this->load_json_file('personal.json');
         if (empty($json_content)) {
             return;
         }
 
         // Insertar
-        insert_elementor_template($json_content, 'Plantilla Web Personal', $template_type, $condition, $export_type);
+        $this->insert_elementor_template($json_content, 'Plantilla Web Personal', $template_type, $condition, $export_type);
     }
 
     public function create_estetica_from_json()
@@ -232,17 +237,17 @@ class Template_Manager
         $export_type   = 'estetica';
         $condition     = 'include/general'; // o lo que necesites
 
-        $existing = get_template_by_type($template_type, $export_type);
+        $existing = $this->get_template_by_type($template_type, $export_type);
         if ($existing) {
             echo '<div class="notice notice-warning"><p>Ya existe la single "estetica" (ID ' . $existing->ID . '). No se crea otra.</p></div>';
             return;
         }
-        $json_content = load_json_file('estetica.json');
+        $json_content = $this->load_json_file('estetica.json');
         if (empty($json_content)) {
             return;
         }
 
-        insert_elementor_template($json_content, 'Plantilla Estética JSON', $template_type, $condition, $export_type);
+        $this->insert_elementor_template($json_content, 'Plantilla Estética JSON', $template_type, $condition, $export_type);
     }
 
 
@@ -261,17 +266,17 @@ class Template_Manager
         $export_type   = 'abogado';
         $condition     = 'include/general'; // o 'include/singular/page'
 
-        $existing = get_template_by_type($template_type, $export_type);
+        $existing = $this->get_template_by_type($template_type, $export_type);
         if ($existing) {
             echo '<div class="notice notice-warning"><p>Ya existe la single "abogado" (ID ' . $existing->ID . '). No se crea otra.</p></div>';
             return;
         }
-        $json_content = load_json_file('abogado.json');
+        $json_content = $this->load_json_file('abogado.json');
         if (empty($json_content)) {
             return;
         }
 
-        insert_elementor_template($json_content, 'Plantilla Abogado JSON', $template_type, $condition, $export_type);
+        $this->insert_elementor_template($json_content, 'Plantilla Abogado JSON', $template_type, $condition, $export_type);
     }
 
 

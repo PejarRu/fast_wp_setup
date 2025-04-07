@@ -87,4 +87,61 @@ class Plugin_Manager
         }
         return false;
     }
+
+    /**
+     * Handle plugin installations
+     */
+    public function handle_plugin_installations()
+    {
+        require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/class-plugins-manager.php';
+        $plugin_manager = new Plugin_Manager();
+
+        $json_file = WP_FAST_SETUP_PLUGIN_DIR . 'includes/plugins-list.json';
+        if ( file_exists($json_file) ) {
+            $json_data = file_get_contents($json_file);
+            $data = json_decode($json_data, true);
+            if ( isset($data['plugins']) && is_array($data['plugins']) ) {
+                $plugins = $data['plugins'];
+            } else {
+                $plugins = array();
+            }
+        } else {
+            error_log("Plugin list JSON file not found: " . $json_file);
+            $plugins = array();
+        }
+
+        foreach ($plugins as $slug => $post_key) {
+            if (isset($_POST[$post_key])) {
+                $plugin_manager->install_plugin($slug);
+            }
+        }
+
+        // Process local ZIP installations from static inputs if any.
+        $local_plugins = array(
+            'pro-elements.zip'         => 'install_pro_elements_zip',
+            'elementor-pro.zip'        => 'install_elementor_pro',
+            'custom-fast-blog.zip'     => 'install_custom_fast_blog',
+            'metadebugger.zip'         => 'install_metadebugger',
+            'autoconfigurador-ase.zip' => 'install_autoase'
+        );
+
+        foreach ($local_plugins as $zip_name => $post_key) {
+            if (isset($_POST[$post_key])) {
+                $zip_path = WP_FAST_SETUP_PLUGIN_DIR . 'zip-files/' . $zip_name;
+                $plugin_manager->install_plugin_from_zip($zip_path);
+            }
+        }
+
+        // Process dynamically generated ZIP files.
+        $zip_files = glob(WP_FAST_SETUP_PLUGIN_DIR . 'zip-files/*.zip');
+        if ($zip_files) {
+            foreach ($zip_files as $zip_file) {
+                $basename   = basename($zip_file);
+                $input_name = 'install_zip_' . sanitize_title($basename);
+                if ( isset($_POST[$input_name]) ) {
+                    $plugin_manager->install_plugin_from_zip($zip_file);
+                }
+            }
+        }
+    }
 }
