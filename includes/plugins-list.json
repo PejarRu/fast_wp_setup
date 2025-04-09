@@ -14,6 +14,7 @@
       "woocommerce": "install_woocommerce",
       "wp-file-manager": "install_filemanager",
       "under-construction-page": "install_under",
-        "stockpack": "stockpack"
+        "stockpack": "stockpack",
+"instant-images": "instant-images"
     }
   }
