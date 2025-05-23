@@ -22,6 +22,7 @@
         "redirection": "install_redirection",
         "code-snippets": "install_codesnippets",
         "essential-addons-for-elementor-lite": "install_essential_addons",
+        "strong-testimonials": "strong-testimonials",
         "acf-quickedit-fields": "acf-quickedit-fields"
       }
 }
