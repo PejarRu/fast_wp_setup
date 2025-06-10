@@ -1,6 +1,6 @@
 {
     "plugins": {
-      "elementor": "install_elementor",
+        "elementor": "install_elementor",
         "admin-site-enhancements": "admin-site-enhancements",
         "wordpress-seo": "install_seo",
         "advanced-custom-fields": "install_advanced",
@@ -23,6 +23,7 @@
         "code-snippets": "install_codesnippets",
         "essential-addons-for-elementor-lite": "install_essential_addons",
         "strong-testimonials": "strong-testimonials",
-        "acf-quickedit-fields": "acf-quickedit-fields"
+        "acf-quickedit-fields": "acf-quickedit-fields",
+        "ewww-image-optimizer": "ewww-image-optimizer"
       }
 }
