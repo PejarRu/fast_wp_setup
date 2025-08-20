@@ -8,6 +8,7 @@
         "google-site-kit": "install_sitekit",
         "advanced-google-recaptcha": "install_recaptcha",
         "translatepress-multilingual": "install_translatepress",
+        "gtranslate": "gtranslate",
         "wp-whatsapp": "install_wpchat",
         "updraftplus": "install_updraft",
         "wp-security-audit-log": "install_wplog",
