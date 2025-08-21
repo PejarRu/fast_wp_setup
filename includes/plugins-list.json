@@ -19,6 +19,7 @@
         "stockpack": "stockpack",
         "instant-images": "instant-images",
         "wp-phpmyadmin-extension": "wp-phpmyadmin-extension",
+        "wp-reviews-plugin-for-google": "wp-reviews-plugin-for-google",
         "folders": "folders",
         "redirection": "install_redirection",
         "code-snippets": "install_codesnippets",
@@ -27,6 +28,6 @@
         "acf-quickedit-fields": "acf-quickedit-fields",
         "ewww-image-optimizer": "ewww-image-optimizer",
         "envato-elements": "envato-elements",
-"performance-lab": "performance-lab"
+        "performance-lab": "performance-lab"
       }
 }
