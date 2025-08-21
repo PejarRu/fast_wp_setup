@@ -15,6 +15,7 @@
         "complianz-gdpr": "install_complianz",
         "woocommerce": "install_woocommerce",
         "wp-file-manager": "install_filemanager",
+        "wordpress-activity-log": "wordpress-activity-log",
         "under-construction-page": "install_under",
         "stockpack": "stockpack",
         "instant-images": "instant-images",
