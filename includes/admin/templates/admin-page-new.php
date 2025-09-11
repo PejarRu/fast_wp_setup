@@ -802,11 +802,11 @@
                 </div>
                 <p class="wpf-card-description">Esta acción eliminará permanentemente el plugin WP Fast Setup de tu instalación de WordPress.</p>
 
-                <form method="post" action="<?php echo admin_url('admin-post.php'); ?>" onsubmit="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');">
-                    <?php wp_nonce_field('wp_fast_setup_delete_plugin', 'wp_fast_setup_delete_nonce'); ?>
-                    <input type="hidden" name="action" value="wp_fast_setup_delete_plugin">
+                <form method="post" action="">
+                    <?php wp_nonce_field('wp_fast_setup_delete_action', 'wp_fast_setup_delete_nonce'); ?>
                     <div class="wpf-button-group">
-                        <button type="submit" class="wpf-btn wpf-btn-warning">
+                        <button type="submit" name="wp_fast_setup_delete_plugin" class="wpf-btn wpf-btn-warning"
+                            onclick="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');">
                             🗑️ Eliminar Permanentemente
                         </button>
                     </div>

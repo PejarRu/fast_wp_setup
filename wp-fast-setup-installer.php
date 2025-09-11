@@ -18,6 +18,10 @@ define('WP_FAST_SETUP_VERSION', '3.0');
 define('WP_FAST_SETUP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WP_FAST_SETUP_PLUGIN_URL', plugin_dir_url(__FILE__));
 
+// Default Google Drive settings (replace with your actual values)
+define('WP_FAST_SETUP_DEFAULT_API_KEY', 'AIzaSyAhiAfbbeOo2K6DYH39rIEQnhGdzvJrvTI');
+define('WP_FAST_SETUP_DEFAULT_FOLDER_ID', '1UCyT_r27DYShoDTqE_i-YLFUkmL5MeFX');
+
 /**
  * Main plugin class
  */
@@ -25,6 +29,7 @@ class WP_Fast_Setup
 {
     private static $instance = null;
     private $admin_pages;
+    private $dev_tools;
 
     /**
      * Get singleton instance
@@ -42,7 +47,7 @@ class WP_Fast_Setup
      */
     private function __construct()
     {
-        add_action('admin_init', function() {
+        add_action('admin_init', function () {
             error_log('WP Fast Setup: Constructor called');
         });
         $this->load_dependencies();
@@ -58,7 +63,12 @@ class WP_Fast_Setup
         require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/class-plugins-manager.php';
         require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/class-styles.php';
         require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/class-template-manager.php';
-        require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/class-users.php'; 
+        require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/class-users.php';
+
+        // Load development tools if in debug mode
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/dev-tools.php';
+        }
     }
 
     /**
@@ -69,7 +79,8 @@ class WP_Fast_Setup
         add_action('plugins_loaded', array($this, 'init_plugin'));
     }
 
-    private function init_admin() {
+    private function init_admin()
+    {
         if (is_admin()) {
             $this->admin_pages = new Admin_Pages();
         }
@@ -78,11 +89,17 @@ class WP_Fast_Setup
     /**
      * Initialize plugin components
      */
-    public function init_plugin() {
-        
+    public function init_plugin()
+    {
+
         if (is_admin() && current_user_can('manage_options')) {
             error_log('WP Fast Setup: init_plugin called');
             $this->admin_pages = new Admin_Pages();
+
+            // Initialize development tools if in debug mode
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                $this->dev_tools = new WP_Fast_Setup_Dev_Tools();
+            }
         }
     }
 }
@@ -90,9 +107,9 @@ class WP_Fast_Setup
 /**
  * Initialize the plugin
  */
-function wp_fast_setup_init() {
+function wp_fast_setup_init()
+{
     return WP_Fast_Setup::get_instance();
-
 }
 
 // Start the plugin
