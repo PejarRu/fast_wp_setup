@@ -1,5 +1,5 @@
-{
     "plugins": {
+{
         "elementor": "install_elementor",
         "admin-site-enhancements": "admin-site-enhancements",
         "wordpress-seo": "install_seo",
@@ -30,6 +30,7 @@
         "ewww-image-optimizer": "ewww-image-optimizer",
         "envato-elements": "envato-elements",
         "performance-lab": "performance-lab",
-        "media-library-helper":"media-library-helper"
+        "media-library-helper":"media-library-helper",
+        "reviews-and-rating-docplanner":"reviews-and-rating-docplanner"
       }
 }
