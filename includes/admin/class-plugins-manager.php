@@ -18,7 +18,7 @@ class Plugin_Manager
      */
     private function show_message($message, $type = 'success')
     {
-        if (defined('WP_FAST_SETUP_AJAX') && WP_FAST_SETUP_AJAX) {
+        if (defined('WP_FAST_SETUP_ACTION') && WP_FAST_SETUP_ACTION) {
             return;
         }
         $class = $type === 'error' ? 'error' : 'updated';
@@ -49,14 +49,14 @@ class Plugin_Manager
     /**
      * Instalar y activar plugin desde un ZIP local.
      * @param string $zip_file_path Ruta al archivo ZIP.
-     * @param string $plugin_file Relative plugin file path for activation (default: 'pro-elements/pro-elements.php').
+     * @param string $plugin_slug Slug del plugin para determinar el archivo de activación.
      * @return bool|string True on success, or error message on failure.
      */
-    function install_plugin_from_zip($zip_file_path)
+    function install_plugin_from_zip($zip_file_path, $plugin_slug = '')
     {
         if (!file_exists($zip_file_path)) {
             $this->show_message('No se encontró el archivo ZIP: ' . esc_html($zip_file_path), 'error');
-            return;
+            return false;
         }
 
         require_once ABSPATH . 'wp-admin/includes/file.php';
@@ -69,22 +69,111 @@ class Plugin_Manager
 
         if (is_wp_error($installed)) {
             $this->show_message('Error al instalar plugin desde ZIP: ' . esc_html($installed->get_error_message()), 'error');
-            return;
+            return false;
         } elseif (!$installed) {
             $this->show_message('No se pudo instalar el plugin desde ZIP.', 'error');
-            return;
+            return false;
         }
 
-        // Activar
-        $plugin_relative_path = 'pro-elements/pro-elements.php';
-        if (file_exists(WP_PLUGIN_DIR . '/' . $plugin_relative_path)) {
-            $activate = activate_plugin($plugin_relative_path);
+        // Intentar determinar el archivo del plugin para activación
+        $plugin_file = $this->find_plugin_file($plugin_slug);
+
+        if ($plugin_file && file_exists(WP_PLUGIN_DIR . '/' . $plugin_file)) {
+            $activate = activate_plugin($plugin_file);
             if (is_wp_error($activate)) {
-                $this->show_message('Error al activar Pro Elements: ' . esc_html($activate->get_error_message()), 'error');
+                $this->show_message('Error al activar plugin: ' . esc_html($activate->get_error_message()), 'error');
+                return false;
             } else {
-                $this->show_message('Pro Elements instalado y activado correctamente.');
+                $this->show_message('Plugin instalado y activado correctamente.');
+                return true;
+            }
+        } else {
+            $this->show_message('Plugin instalado pero no se pudo determinar el archivo para activación.', 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Encuentra el archivo principal del plugin para activación
+     * @param string $plugin_slug Slug del plugin
+     * @return string|null Ruta relativa del archivo del plugin
+     */
+    private function find_plugin_file($plugin_slug)
+    {
+        if (empty($plugin_slug)) {
+            return null;
+        }
+
+        // Intentar con el patrón estándar
+        $standard_file = $plugin_slug . '/' . $plugin_slug . '.php';
+        if (file_exists(WP_PLUGIN_DIR . '/' . $standard_file)) {
+            return $standard_file;
+        }
+
+        // Buscar archivos PHP en el directorio del plugin
+        $plugin_dir = WP_PLUGIN_DIR . '/' . $plugin_slug;
+        if (is_dir($plugin_dir)) {
+            $files = glob($plugin_dir . '/*.php');
+            foreach ($files as $file) {
+                $content = file_get_contents($file);
+                // Buscar header de plugin
+                if (strpos($content, 'Plugin Name:') !== false) {
+                    return $plugin_slug . '/' . basename($file);
+                }
             }
         }
+
+        return null;
+    }
+
+    /**
+     * Obtener lista de archivos ZIP locales disponibles
+     * @return array Lista de archivos ZIP
+     */
+    function get_local_zip_files()
+    {
+        $zip_dir = WP_FAST_SETUP_PLUGIN_DIR . 'zip-files/';
+        $zip_files = array();
+
+        if (is_dir($zip_dir)) {
+            $files = scandir($zip_dir);
+            foreach ($files as $file) {
+                if (pathinfo($file, PATHINFO_EXTENSION) === 'zip') {
+                    $zip_files[] = $file;
+                }
+            }
+        }
+
+        return $zip_files;
+    }
+
+    /**
+     * Obtener lista de archivos ZIP de Google Drive disponibles
+     * @return array Lista de archivos ZIP con sus IDs
+     */
+    function get_google_drive_zip_files()
+    {
+        $plugins_list_file = WP_FAST_SETUP_PLUGIN_DIR . 'includes/plugins-list.json';
+
+        if (!file_exists($plugins_list_file)) {
+            return array();
+        }
+
+        $plugins_data = json_decode(file_get_contents($plugins_list_file), true);
+
+        if (!isset($plugins_data['google_drive_zips'])) {
+            return array();
+        }
+
+        $zip_files = array();
+        foreach ($plugins_data['google_drive_zips'] as $filename => $file_id) {
+            $zip_files[] = array(
+                'name' => $filename,
+                'id' => $file_id
+            );
+        }
+
+        return $zip_files;
     }
 
     /**
@@ -133,23 +222,83 @@ class Plugin_Manager
      */
     public function install_plugin_from_drive_zip($file_id, $file_name)
     {
-        $download_url = "https://drive.google.com/uc?export=download&id=" . urlencode($file_id);
-        $response = wp_remote_get($download_url);
+        // Use Google Drive API to download the file
+        $api_key = get_option('wp_fast_setup_google_drive_api_key', WP_FAST_SETUP_DEFAULT_API_KEY);
+        $download_url = "https://www.googleapis.com/drive/v3/files/" . urlencode($file_id) . "?alt=media&key=" . urlencode($api_key);
+
+        $response = wp_remote_get($download_url, array(
+            'timeout' => 60, // Increased timeout for large files
+            'headers' => array(
+                'User-Agent' => 'WP-Fast-Setup/1.0'
+            )
+        ));
+
         if (is_wp_error($response)) {
-            $this->show_message('Error al descargar el archivo ZIP desde Google Drive.', 'error');
-            return;
+            $this->show_message('Error al descargar el archivo ZIP desde Google Drive: ' . $response->get_error_message(), 'error');
+            return false;
         }
+
+        $http_code = wp_remote_retrieve_response_code($response);
+        if ($http_code !== 200) {
+            $this->show_message('Error HTTP ' . $http_code . ' al descargar desde Google Drive', 'error');
+            return false;
+        }
+
         $zip_content = wp_remote_retrieve_body($response);
         if (empty($zip_content)) {
             $this->show_message('El archivo ZIP descargado está vacío.', 'error');
-            return;
+            return false;
         }
+
         // Save to temp file
         $temp_file = wp_tempnam($file_name);
-        file_put_contents($temp_file, $zip_content);
-        $this->install_plugin_from_zip($temp_file);
+        if (!$temp_file) {
+            $this->show_message('No se pudo crear archivo temporal', 'error');
+            return false;
+        }
+
+        $result = file_put_contents($temp_file, $zip_content);
+        if ($result === false) {
+            $this->show_message('Error al guardar archivo ZIP temporal', 'error');
+            @unlink($temp_file);
+            return false;
+        }
+
+        // Install the plugin
+        $install_result = $this->install_plugin_from_zip($temp_file, $this->find_plugin_slug_from_zip($file_name));
+
         // Clean up temp file
         @unlink($temp_file);
+
+        return $install_result;
+    }
+
+    /**
+     * Extract plugin slug from ZIP filename
+     */
+    private function find_plugin_slug_from_zip($zip_filename)
+    {
+        // Remove .zip extension
+        $name = preg_replace('/\.zip$/i', '', $zip_filename);
+
+        // Common patterns for plugin naming
+        $patterns = [
+            '/^(.*)-pro$/i',
+            '/^(.*)-premium$/i',
+            '/^(.*)_pro$/i',
+            '/^(.*)_premium$/i',
+            '/^pro-(.*)$/i',
+            '/^premium-(.*)$/i'
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $name, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        // If no pattern matches, try to use the name as-is
+        return sanitize_title($name);
     }
 
     /**
@@ -208,17 +357,12 @@ class Plugin_Manager
             }
         }
 
-        // Process Google Drive ZIP files.
-        $api_key = get_option('wp_fast_setup_google_drive_api_key', WP_FAST_SETUP_DEFAULT_API_KEY);
-        $folder_id = get_option('wp_fast_setup_google_drive_folder_id', WP_FAST_SETUP_DEFAULT_FOLDER_ID);
-        if (!empty($api_key) && !empty($folder_id)) {
-            $drive_files = $this->get_drive_zip_files($api_key, $folder_id);
-            foreach ($drive_files as $file) {
-                $input_name = 'install_drive_zip_' . sanitize_title($file['name']);
-                if (isset($_POST[$input_name])) {
-                    $file_id = sanitize_text_field($_POST[$input_name]);
-                    $plugin_manager->install_plugin_from_drive_zip($file_id, $file['name']);
-                }
+        // Process Google Drive ZIP files from JSON config
+        $google_drive_zips = $this->get_google_drive_zip_files();
+        foreach ($google_drive_zips as $file) {
+            $input_name = 'install_drive_zip_' . sanitize_title($file['name']);
+            if (isset($_POST[$input_name])) {
+                $plugin_manager->install_plugin_from_drive_zip($file['id'], $file['name']);
             }
         }
 

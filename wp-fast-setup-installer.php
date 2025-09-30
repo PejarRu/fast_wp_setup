@@ -18,9 +18,20 @@ define('WP_FAST_SETUP_VERSION', '3.0');
 define('WP_FAST_SETUP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WP_FAST_SETUP_PLUGIN_URL', plugin_dir_url(__FILE__));
 
-// Default Google Drive settings (replace with your actual values)
-define('WP_FAST_SETUP_DEFAULT_API_KEY', 'AIzaSyAhiAfbbeOo2K6DYH39rIEQnhGdzvJrvTI');
-define('WP_FAST_SETUP_DEFAULT_FOLDER_ID', '1UCyT_r27DYShoDTqE_i-YLFUkmL5MeFX');
+// Load environment variables if .env file exists
+if (file_exists(__DIR__ . '/.env')) {
+    $env_lines = file(__DIR__ . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($env_lines as $line) {
+        if (strpos($line, '=') !== false && strpos($line, '#') !== 0) {
+            list($key, $value) = explode('=', $line, 2);
+            $_ENV[trim($key)] = trim($value);
+        }
+    }
+}
+
+// Default Google Drive settings - Priority: .env > Empty defaults
+define('WP_FAST_SETUP_DEFAULT_API_KEY', $_ENV['GOOGLE_DRIVE_API_KEY'] ?? '');
+define('WP_FAST_SETUP_DEFAULT_FOLDER_ID', $_ENV['GOOGLE_DRIVE_FOLDER_ID'] ?? '');
 
 /**
  * Main plugin class

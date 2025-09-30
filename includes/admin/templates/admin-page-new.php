@@ -280,74 +280,79 @@
         background: #b32d2e;
     }
 
-    /* Progress Modal */
-    .wpf-modal {
+    /* Fixed Progress Bar */
+    .wpf-fixed-progress {
         display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 10000;
-        animation: fadeIn 0.3s ease;
+        margin-top: 20px;
+        padding: 20px;
+        background: var(--wpfs-white);
+        border-radius: 8px;
+        box-shadow: var(--wpfs-shadow);
+        border-left: 4px solid var(--wpfs-primary);
     }
 
-    @keyframes fadeIn {
+    .wpf-fixed-progress.show {
+        display: block;
+        animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
         from {
             opacity: 0;
+            transform: translateY(-10px);
         }
 
         to {
             opacity: 1;
+            transform: translateY(0);
         }
     }
 
-    .wpf-modal-content {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: var(--wpfs-white);
-        padding: 40px;
-        border-radius: 12px;
-        max-width: 500px;
-        width: 90%;
-        text-align: center;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    .wpf-fixed-progress-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
     }
 
-    .wpf-modal-icon {
-        font-size: 48px;
-        margin-bottom: 20px;
+    .wpf-fixed-progress-icon {
+        font-size: 24px;
+        margin-right: 15px;
     }
 
-    .wpf-modal-title {
-        margin: 0 0 15px 0;
-        font-size: 1.5em;
+    .wpf-fixed-progress-title {
+        margin: 0;
+        font-size: 1.2em;
         font-weight: 600;
+        color: var(--wpfs-text);
     }
 
-    .wpf-modal-message {
-        margin: 0 0 25px 0;
+    .wpf-fixed-progress-message {
+        margin: 0 0 15px 0;
         color: var(--wpfs-text-light);
+        font-size: 0.9em;
     }
 
-    .wpf-progress-bar {
+    .wpf-fixed-progress-bar {
         width: 100%;
         height: 8px;
         background: var(--wpfs-light);
         border-radius: 4px;
         overflow: hidden;
-        margin: 20px 0;
+        margin-bottom: 10px;
     }
 
-    .wpf-progress-fill {
+    .wpf-fixed-progress-fill {
         height: 100%;
         background: linear-gradient(90deg, var(--wpfs-primary), var(--wpfs-accent));
         width: 0%;
         transition: width 0.3s ease;
         border-radius: 4px;
+    }
+
+    .wpf-fixed-progress-status {
+        font-size: 0.85em;
+        color: var(--wpfs-text-light);
+        text-align: center;
     }
 
     /* Responsive */
@@ -530,6 +535,19 @@
     <div class="wpf-header">
         <h1>🚀 WP Fast Setup</h1>
         <p>Configura tu sitio WordPress en minutos con herramientas profesionales</p>
+
+        <!-- Fixed Progress Bar -->
+        <div id="wpf-fixed-progress" class="wpf-fixed-progress">
+            <div class="wpf-fixed-progress-header">
+                <div class="wpf-fixed-progress-icon">📦</div>
+                <h3 class="wpf-fixed-progress-title">Instalando Plugins...</h3>
+            </div>
+            <p class="wpf-fixed-progress-message">Por favor espera mientras se instalan los plugins seleccionados.</p>
+            <div class="wpf-fixed-progress-bar">
+                <div id="wpf-fixed-progress-fill" class="wpf-fixed-progress-fill"></div>
+            </div>
+            <div class="wpf-fixed-progress-status">Preparando instalación...</div>
+        </div>
     </div>
 
     <!-- Navigation Tabs -->
@@ -585,8 +603,34 @@
                 </div>
 
                 <div class="wpf-button-group">
-                    <button type="submit" name="save_site_settings" class="wpf-btn wpf-btn-primary">
+                    <button type="submit" name="save_site_settings" class="wpf-btn wpf-btn-primary" title="Guardar todos los cambios de configuración del sitio (título, URL, idioma, etc.)">
                         💾 Guardar Configuración
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="wpf-card">
+            <div class="wpf-card-header">
+                <span class="wpf-card-icon">🔗</span>
+                <h2 class="wpf-card-title">Configuración de Google Drive</h2>
+            </div>
+            <p class="wpf-card-description">Configura tu API Key y Folder ID de Google Drive para acceder a plugins adicionales</p>
+
+            <form id="google-drive-form" method="POST" action="">
+                <div class="wpf-form-group">
+                    <label for="wpfs_google_drive_api_key">API Key de Google Drive</label>
+                    <input type="password" id="wpfs_google_drive_api_key" name="google_drive_api_key" autocomplete="new-password" value="<?php echo esc_attr(get_option('wp_fast_setup_google_drive_api_key', WP_FAST_SETUP_DEFAULT_API_KEY)); ?>" style="width: 100%; max-width: 600px;">
+                </div>
+                <div class="wpf-form-group">
+                    <label for="wpfs_google_drive_folder_id">ID de la Carpeta de Google Drive</label>
+                    <input type="password" id="wpfs_google_drive_folder_id" name="google_drive_folder_id" autocomplete="new-password" value="<?php echo esc_attr(get_option('wp_fast_setup_google_drive_folder_id', WP_FAST_SETUP_DEFAULT_FOLDER_ID)); ?>" style="width: 100%; max-width: 600px;">
+                </div>
+                <small class="wpf-form-help">Por defecto usa la configuración predefinida. Puedes personalizarla con tu propia API Key y Folder ID si lo deseas.</small>
+
+                <div class="wpf-button-group">
+                    <button type="submit" class="wpf-btn wpf-btn-secondary" title="Guardar la configuración de API Key y Folder ID de Google Drive">
+                        💾 Guardar Configuración de Google Drive
                     </button>
                 </div>
             </form>
@@ -622,7 +666,7 @@
                 </div>
 
                 <div class="wpf-button-group">
-                    <button type="submit" name="save_features" class="wpf-btn wpf-btn-success">
+                    <button type="submit" name="save_features" class="wpf-btn wpf-btn-success" title="Aplicar las características avanzadas seleccionadas (SEO, comentarios, usuario admin, etc.)">
                         ⚡ Aplicar Cambios
                     </button>
                 </div>
@@ -645,12 +689,12 @@
                 <div class="wpf-drive-settings">
                     <h4>🔗 Configuración de Google Drive</h4>
                     <div class="wpf-form-group">
-                        <label for="google_drive_api_key">API Key de Google Drive</label>
-                        <input type="text" id="google_drive_api_key" name="google_drive_api_key" value="<?php echo esc_attr(get_option('wp_fast_setup_google_drive_api_key', WP_FAST_SETUP_DEFAULT_API_KEY)); ?>">
+                        <label for="wpfs_google_drive_api_key">API Key de Google Drive</label>
+                        <input type="password" id="wpfs_google_drive_api_key" name="google_drive_api_key" autocomplete="new-password" value="<?php echo esc_attr(get_option('wp_fast_setup_google_drive_api_key', WP_FAST_SETUP_DEFAULT_API_KEY)); ?>">
                     </div>
                     <div class="wpf-form-group">
-                        <label for="google_drive_folder_id">ID de la Carpeta de Google Drive</label>
-                        <input type="text" id="google_drive_folder_id" name="google_drive_folder_id" value="<?php echo esc_attr(get_option('wp_fast_setup_google_drive_folder_id', WP_FAST_SETUP_DEFAULT_FOLDER_ID)); ?>">
+                        <label for="wpfs_google_drive_folder_id">ID de la Carpeta de Google Drive</label>
+                        <input type="password" id="wpfs_google_drive_folder_id" name="google_drive_folder_id" autocomplete="new-password" value="<?php echo esc_attr(get_option('wp_fast_setup_google_drive_folder_id', WP_FAST_SETUP_DEFAULT_FOLDER_ID)); ?>">
                     </div>
                     <small>Por defecto usa la configuración predefinida. Puedes personalizarla con tu propia API Key y Folder ID si lo deseas.</small>
                 </div>
@@ -705,7 +749,7 @@
                 <?php endif; ?>
 
                 <div class="wpf-button-group">
-                    <button type="submit" name="install_plugins" class="wpf-btn wpf-btn-primary">
+                    <button type="submit" name="install_plugins" class="wpf-btn wpf-btn-primary" title="Instalar todos los plugins seleccionados desde el repositorio de WordPress o archivos ZIP locales">
                         📦 Instalar Plugins Seleccionados
                     </button>
                 </div>
@@ -722,7 +766,7 @@
             </div>
             <p class="wpf-card-description">Crea páginas automáticamente con diferentes plantillas y estructuras</p>
 
-            <form method="post" action="">
+            <form id="content-form" method="post" action="">
                 <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
 
                 <div class="wpf-page-creator">
@@ -753,19 +797,24 @@
                 </div>
 
                 <div class="wpf-button-group">
-                    <button type="submit" name="create_pages" class="wpf-btn wpf-btn-primary">
+                    <button type="submit" name="create_pages" class="wpf-btn wpf-btn-primary" title="Crear páginas nuevas con la plantilla seleccionada sin afectar las existentes" onclick="setPageAction('create')">
                         📄 Crear Páginas
                     </button>
-                    <button type="submit" name="delete_and_create_pages" class="wpf-btn wpf-btn-warning">
+                    <button type="submit" name="delete_and_create_pages" class="wpf-btn wpf-btn-warning" title="Eliminar todas las páginas existentes y crear nuevas con la plantilla seleccionada" onclick="setPageAction('delete')">
                         🗑️ Borrar y Crear Nuevas
                     </button>
-                    <button type="submit" name="create_pages_and_menu" class="wpf-btn wpf-btn-success">
+                    <button type="submit" name="create_pages_and_menu" class="wpf-btn wpf-btn-success" title="Crear páginas nuevas y agregarlas automáticamente al menú de navegación" onclick="setPageAction('create_menu')">
                         📄➕ Crear con Menú
                     </button>
-                    <button type="submit" name="delete_and_create_pages_with_menu" class="wpf-btn wpf-btn-warning">
+                    <button type="submit" name="delete_and_create_pages_with_menu" class="wpf-btn wpf-btn-warning" title="Eliminar páginas existentes, crear nuevas y agregarlas al menú de navegación" onclick="setPageAction('delete_menu')">
                         🗑️➕ Borrar y Crear con Menú
                     </button>
                 </div>
+
+                <!-- Hidden fields for page actions -->
+                <input type="hidden" name="page_action" id="page_action" value="">
+                <input type="hidden" name="delete_existing" id="delete_existing" value="0">
+                <input type="hidden" name="create_menu" id="create_menu" value="0">
             </form>
         </div>
     </div>
@@ -782,14 +831,14 @@
             <div class="wpf-button-group">
                 <form method="post" action="" style="display: inline;">
                     <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-                    <button type="submit" name="create_header" class="wpf-btn wpf-btn-primary">
+                    <button type="submit" name="create_header" class="wpf-btn wpf-btn-primary" title="Crear un header profesional con Elementor usando templates predefinidos">
                         🎨 Crear Header
                     </button>
                 </form>
 
                 <form method="post" action="" style="display: inline;">
                     <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-                    <button type="submit" name="create_footer" class="wpf-btn wpf-btn-primary">
+                    <button type="submit" name="create_footer" class="wpf-btn wpf-btn-primary" title="Crear un footer profesional con Elementor usando templates predefinidos">
                         🎨 Crear Footer
                     </button>
                 </form>
@@ -806,7 +855,8 @@
                     <?php wp_nonce_field('wp_fast_setup_delete_action', 'wp_fast_setup_delete_nonce'); ?>
                     <div class="wpf-button-group">
                         <button type="submit" name="wp_fast_setup_delete_plugin" class="wpf-btn wpf-btn-warning"
-                            onclick="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');">
+                            onclick="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');"
+                            title="Eliminar completamente WP Fast Setup y todos sus archivos (acción irreversible)">
                             🗑️ Eliminar Permanentemente
                         </button>
                     </div>
@@ -815,21 +865,13 @@
         </div>
     </div>
 
-    <!-- Progress Modal -->
-    <div id="wpf-progress-modal" class="wpf-modal">
-        <div class="wpf-modal-content">
-            <div class="wpf-modal-icon">📦</div>
-            <h3 class="wpf-modal-title">Instalando Plugins...</h3>
-            <p class="wpf-modal-message">Por favor espera mientras se instalan los plugins seleccionados.</p>
-            <div class="wpf-progress-bar">
-                <div id="wpf-progress-fill" class="wpf-progress-fill"></div>
-            </div>
-            <button id="wpf-close-modal" class="wpf-btn wpf-btn-secondary">Cerrar</button>
-        </div>
-    </div>
+
 </div>
 
 <script>
+    // Localize ajaxurl for AJAX requests
+    const ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
+
     document.addEventListener('DOMContentLoaded', function() {
         // Tab switching
         const tabs = document.querySelectorAll('.wpf-tab');
@@ -872,54 +914,273 @@
 
         // AJAX form submission for plugins
         const pluginForm = document.querySelector('#plugins form');
-        const modal = document.getElementById('wpf-progress-modal');
-        const progressFill = document.getElementById('wpf-progress-fill');
-        const closeModal = document.getElementById('wpf-close-modal');
+        const fixedProgress = document.getElementById('wpf-fixed-progress');
+        const fixedProgressFill = document.getElementById('wpf-fixed-progress-fill');
+        const fixedProgressStatus = document.querySelector('.wpf-fixed-progress-status');
 
         if (pluginForm) {
             pluginForm.addEventListener('submit', function(e) {
                 e.preventDefault();
 
-                // Show modal
-                modal.style.display = 'block';
-                progressFill.style.width = '0%';
+                console.log('WP Fast Setup: Plugin form submitted');
+
+                // Show fixed progress bar
+                fixedProgress.classList.add('show');
+                fixedProgressFill.style.width = '0%';
+                fixedProgressStatus.textContent = 'Preparando instalación...';
+
+                // Scroll to progress bar
+                fixedProgress.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
 
                 // Collect form data
                 const formData = new FormData(pluginForm);
                 formData.append('action', 'wp_fast_setup_install_plugins');
-                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_ajax'); ?>');
+                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_action'); ?>');
+
+                console.log('WP Fast Setup: Form data collected:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(key + ': ' + value);
+                }
 
                 // Send AJAX request
+                console.log('WP Fast Setup: Sending AJAX request to:', ajaxurl);
                 fetch(ajaxurl, {
                         method: 'POST',
                         body: formData
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        console.log('WP Fast Setup: AJAX response received:', response);
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('WP Fast Setup: AJAX data received:', data);
                         if (data.success) {
-                            progressFill.style.width = '100%';
+                            fixedProgressFill.style.width = '100%';
+                            fixedProgressStatus.textContent = 'Instalación completada exitosamente';
                             setTimeout(() => {
-                                modal.style.display = 'none';
+                                fixedProgress.classList.remove('show');
                                 location.reload();
                             }, 2000);
                         } else {
-                            alert('Error: ' + data.message);
-                            modal.style.display = 'none';
+                            fixedProgressStatus.textContent = 'Error: ' + data.message;
+                            setTimeout(() => {
+                                fixedProgress.classList.remove('show');
+                            }, 3000);
                         }
                     })
                     .catch(error => {
-                        alert('Error de conexión');
-                        modal.style.display = 'none';
+                        console.error('WP Fast Setup: AJAX error:', error);
+                        fixedProgressStatus.textContent = 'Error de conexión';
+                        setTimeout(() => {
+                            fixedProgress.classList.remove('show');
+                        }, 3000);
                     });
             });
         }
 
-        // Close modal
-        closeModal.addEventListener('click', function() {
-            modal.style.display = 'none';
-            location.reload();
-        });
+        // AJAX form submission for site settings
+        const siteSettingsForm = document.querySelector('#site form');
+        if (siteSettingsForm) {
+            siteSettingsForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                console.log('WP Fast Setup: Site settings form submitted');
+
+                // Collect form data
+                const formData = new FormData(siteSettingsForm);
+                formData.append('action', 'wp_fast_setup_save_site_settings');
+                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_action'); ?>');
+
+                console.log('WP Fast Setup: Site settings form data collected:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(key + ': ' + value);
+                }
+
+                // Send AJAX request
+                console.log('WP Fast Setup: Sending site settings AJAX request to:', ajaxurl);
+                fetch(ajaxurl, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        console.log('WP Fast Setup: Site settings AJAX response received:', response);
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('WP Fast Setup: Site settings AJAX data received:', data);
+                        if (data.success) {
+                            alert('✅ Configuración del sitio guardada correctamente');
+                            location.reload();
+                        } else {
+                            alert('❌ Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('WP Fast Setup: Site settings AJAX error:', error);
+                        alert('❌ Error de conexión al guardar configuración');
+                    });
+            });
+        }
+
+        // AJAX form submission for Google Drive settings
+        const googleDriveForm = document.querySelector('#google-drive-form');
+        if (googleDriveForm) {
+            googleDriveForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                console.log('WP Fast Setup: Google Drive form submitted');
+
+                // Collect form data
+                const formData = new FormData(googleDriveForm);
+                formData.append('action', 'wp_fast_setup_save_google_drive');
+                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_action'); ?>');
+
+                console.log('WP Fast Setup: Google Drive form data collected:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(key + ': ' + value);
+                }
+
+                // Send AJAX request
+                console.log('WP Fast Setup: Sending Google Drive AJAX request to:', ajaxurl);
+                fetch(ajaxurl, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        console.log('WP Fast Setup: Google Drive AJAX response received:', response);
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('WP Fast Setup: Google Drive AJAX data received:', data);
+                        if (data.success) {
+                            alert('✅ Configuración de Google Drive guardada correctamente');
+                            // Refresh the plugins tab to show new Google Drive files
+                            location.reload();
+                        } else {
+                            alert('❌ Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('WP Fast Setup: Google Drive AJAX error:', error);
+                        alert('❌ Error de conexión al guardar configuración de Google Drive');
+                    });
+            });
+        }
+
+        // AJAX form submission for content/pages creation
+        const contentForm = document.getElementById('content-form');
+        if (contentForm) {
+            console.log('WP Fast Setup: Content form found and event listener attached');
+
+            contentForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                console.log('WP Fast Setup: Content form submitted');
+
+                const formData = new FormData();
+                formData.append('action', 'wp_fast_setup_create_pages');
+                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_action'); ?>');
+                formData.append('pages_input', this.querySelector('[name="pages_input"]').value);
+                formData.append('page_template', this.querySelector('[name="page_template"]:checked').value);
+                formData.append('delete_existing', this.querySelector('[name="delete_existing"]').value);
+                formData.append('create_menu', this.querySelector('[name="create_menu"]').value);
+
+                console.log('WP Fast Setup: Pages form data:');
+                console.log('- pages_input:', this.querySelector('[name="pages_input"]').value);
+                console.log('- page_template:', this.querySelector('[name="page_template"]:checked').value);
+                console.log('- delete_existing:', this.querySelector('[name="delete_existing"]').value);
+                console.log('- create_menu:', this.querySelector('[name="create_menu"]').value);
+
+                // Find the clicked button
+                let submitBtn = this.querySelector('button[type="submit"]:focus');
+                if (!submitBtn) {
+                    // Fallback: find any submit button
+                    submitBtn = this.querySelector('button[type="submit"]');
+                }
+
+                if (submitBtn) {
+                    const originalText = submitBtn.textContent;
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Procesando...';
+
+                    console.log('WP Fast Setup: Sending AJAX request to:', ajaxurl);
+
+                    fetch(ajaxurl, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => {
+                            console.log('WP Fast Setup: Raw response:', response);
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log('WP Fast Setup: AJAX response data:', data);
+                            if (data.success) {
+                                submitBtn.textContent = '✅ Completado';
+                                setTimeout(() => {
+                                    submitBtn.disabled = false;
+                                    submitBtn.textContent = originalText;
+                                }, 2000);
+                            } else {
+                                console.error('WP Fast Setup: Error in response:', data);
+                                alert('❌ Error: ' + (data.data || data.message || 'Error desconocido'));
+                                submitBtn.disabled = false;
+                                submitBtn.textContent = originalText;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('WP Fast Setup: Fetch error:', error);
+                            alert('❌ Error de conexión: ' + error.message);
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = originalText;
+                        });
+                } else {
+                    console.error('WP Fast Setup: No submit button found');
+                }
+            });
+        } else {
+            console.error('WP Fast Setup: Content form not found');
+        }
     });
+
+    // Function to set page creation action
+    function setPageAction(action) {
+        console.log('WP Fast Setup: Setting page action:', action);
+
+        const deleteExistingField = document.getElementById('delete_existing');
+        const createMenuField = document.getElementById('create_menu');
+        const pageActionField = document.getElementById('page_action');
+
+        if (deleteExistingField && createMenuField && pageActionField) {
+            pageActionField.value = action;
+
+            switch (action) {
+                case 'create':
+                    deleteExistingField.value = '0';
+                    createMenuField.value = '0';
+                    break;
+                case 'delete':
+                    deleteExistingField.value = '1';
+                    createMenuField.value = '0';
+                    break;
+                case 'create_menu':
+                    deleteExistingField.value = '0';
+                    createMenuField.value = '1';
+                    break;
+                case 'delete_menu':
+                    deleteExistingField.value = '1';
+                    createMenuField.value = '1';
+                    break;
+            }
+
+            console.log('WP Fast Setup: Action set - delete_existing:', deleteExistingField.value, 'create_menu:', createMenuField.value);
+        } else {
+            console.error('WP Fast Setup: Required hidden fields not found');
+        }
+    }
 </script>
 
 <?php settings_errors('wp_fast_setup_messages'); ?>

@@ -47,7 +47,7 @@ class Theme_Manager
         update_option('comment_max_links', 0);
     }
 
-     /**
+    /**
      * Activar tema Hello Elementor
      */
     public function activate_hello_theme()
@@ -62,19 +62,16 @@ class Theme_Manager
         if (!array_key_exists($theme_slug, $all_themes)) {
             $response = wp_remote_get("https://api.wordpress.org/themes/info/1.2/?action=theme_information&request[slug]=$theme_slug");
             if (is_wp_error($response)) {
-                echo "Error al conectar con el repositorio de temas de WordPress.";
-                return;
+                throw new Exception("Error al conectar con el repositorio de temas de WordPress: " . $response->get_error_message());
             }
             $theme_info = json_decode(wp_remote_retrieve_body($response));
             if (empty($theme_info->download_link)) {
-                echo "No se encontró la URL de descarga para 'Hello Elementor'.";
-                return;
+                throw new Exception("No se encontró la URL de descarga para 'Hello Elementor'.");
             }
             $upgrader  = new Theme_Upgrader();
             $installed = $upgrader->install($theme_info->download_link);
             if (is_wp_error($installed)) {
-                echo "Error al instalar el tema 'Hello Elementor'.";
-                return;
+                throw new Exception("Error al instalar el tema 'Hello Elementor': " . $installed->get_error_message());
             }
         }
 
