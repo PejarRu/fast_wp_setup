@@ -686,67 +686,98 @@
             <form method="POST" action="">
                 <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
 
-                <div class="wpf-drive-settings">
-                    <h4>🔗 Configuración de Google Drive</h4>
-                    <div class="wpf-form-group">
-                        <label for="wpfs_google_drive_api_key">API Key de Google Drive</label>
-                        <input type="password" id="wpfs_google_drive_api_key" name="google_drive_api_key" autocomplete="new-password" value="<?php echo esc_attr(get_option('wp_fast_setup_google_drive_api_key', WP_FAST_SETUP_DEFAULT_API_KEY)); ?>">
-                    </div>
-                    <div class="wpf-form-group">
-                        <label for="wpfs_google_drive_folder_id">ID de la Carpeta de Google Drive</label>
-                        <input type="password" id="wpfs_google_drive_folder_id" name="google_drive_folder_id" autocomplete="new-password" value="<?php echo esc_attr(get_option('wp_fast_setup_google_drive_folder_id', WP_FAST_SETUP_DEFAULT_FOLDER_ID)); ?>">
-                    </div>
-                    <small>Por defecto usa la configuración predefinida. Puedes personalizarla con tu propia API Key y Folder ID si lo deseas.</small>
-                </div>
-
                 <?php
                 // Leer lista plugin del JSON
                 $json_file = WP_FAST_SETUP_PLUGIN_DIR . 'includes/plugins-list.json';
+                $all_plugins = [];
                 if (file_exists($json_file)) {
                     $json_data = file_get_contents($json_file);
                     $data = json_decode($json_data, true);
-                    if (isset($data['plugins']) && is_array($data['plugins'])) {
-                        echo '<h4>📚 Plugins del Repositorio</h4>';
-                        echo '<div class="wpf-plugin-list">';
-                        foreach ($data['plugins'] as $slug => $post_key) {
-                            echo '<div class="wpf-plugin-item">';
-                            echo '<input type="checkbox" id="' . esc_attr($post_key) . '" name="' . esc_attr($post_key) . '">';
-                            echo '<label for="' . esc_attr($post_key) . '">' . esc_html($slug) . '</label>';
-                            echo '</div>';
+
+                    // Favoritos primero
+                    if (isset($data['favoritos']) && is_array($data['favoritos'])) {
+                        foreach ($data['favoritos'] as $fav) {
+                            $slug = $fav['slug'];
+                            $source = $fav['source'];
+                            $icon = '⭐';
+                            $all_plugins[] = ['slug' => $slug, 'type' => 'favorito', 'icon' => $icon, 'source' => $source];
                         }
-                        echo '</div>';
+                    }
+
+                    // Plugins del repositorio
+                    if (isset($data['plugins']) && is_array($data['plugins'])) {
+                        foreach ($data['plugins'] as $slug => $post_key) {
+                            $all_plugins[] = ['slug' => $slug, 'type' => 'repo', 'icon' => '📚', 'post_key' => $post_key, 'source' => 'repo'];
+                        }
+                    }
+
+                    // Plugins locales - obtenidos dinámicamente de la carpeta
+                    if (!empty($local_zip_files)) {
+                        foreach ($local_zip_files as $zip_file) {
+                            $friendly_name = isset($data['locales'][$zip_file]) ? $data['locales'][$zip_file] : pathinfo($zip_file, PATHINFO_FILENAME);
+                            $all_plugins[] = ['slug' => $zip_file, 'type' => 'local', 'icon' => '💾', 'zip' => $zip_file, 'plugin_slug' => '', 'source' => 'local', 'label' => $friendly_name];
+                        }
                     }
                 }
-                ?>
 
-                <?php if (!empty($drive_zip_files)): ?>
-                    <h4>☁️ Plugins desde Google Drive</h4>
-                    <div class="wpf-plugin-list">
-                        <?php foreach ($drive_zip_files as $file): ?>
-                            <div class="wpf-plugin-item">
-                                <input type="checkbox" id="drive_<?php echo sanitize_title($file['name']); ?>" name="install_drive_zip_<?php echo sanitize_title($file['name']); ?>" value="<?php echo esc_attr($file['id']); ?>">
-                                <label for="drive_<?php echo sanitize_title($file['name']); ?>"><?php echo esc_html($file['name']); ?></label>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php elseif (!empty($local_zip_files)): ?>
-                    <div class="wpf-notice wpf-notice-warning">
-                        <span class="wpf-notice-icon">⚠️</span>
-                        <div>
-                            <strong>Google Drive no disponible</strong>
-                            <p>Usando respaldo local de archivos ZIP</p>
-                        </div>
-                    </div>
-                    <h4>💾 Plugins Locales (Respaldo)</h4>
-                    <div class="wpf-plugin-list">
-                        <?php foreach ($local_zip_files as $zip): ?>
-                            <div class="wpf-plugin-item">
-                                <input type="checkbox" id="local_<?php echo sanitize_title($zip); ?>" name="install_local_zip_<?php echo sanitize_title($zip); ?>">
-                                <label for="local_<?php echo sanitize_title($zip); ?>"><?php echo esc_html($zip); ?></label>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                // Plugins de Drive
+                if (!empty($drive_zip_files)) {
+                    foreach ($drive_zip_files as $file) {
+                        $all_plugins[] = ['slug' => $file['name'], 'type' => 'drive', 'icon' => '☁️', 'id' => $file['id'], 'source' => 'drive'];
+                    }
+                } elseif (!empty($local_zip_files)) {
+                    // Si no hay Drive, usar locales como respaldo, pero ya están incluidos arriba
+                }
+
+                // Mostrar lista unificada
+                echo '<div class="wpf-plugin-list">';
+                foreach ($all_plugins as $plugin) {
+                    $id = '';
+                    $name = '';
+                    $value = '';
+                    if ($plugin['type'] === 'repo') {
+                        $id = $plugin['post_key'];
+                        $name = $plugin['post_key'];
+                        $label = $plugin['slug'];
+                    } elseif ($plugin['type'] === 'local') {
+                        $id = 'local_' . sanitize_title($plugin['zip']);
+                        $name = 'install_local_zip_' . sanitize_title($plugin['zip']);
+                        $label = isset($plugin['label']) ? $plugin['label'] : $plugin['zip'];
+                    } elseif ($plugin['type'] === 'drive') {
+                        $id = 'drive_' . sanitize_title($plugin['slug']);
+                        $name = 'install_drive_zip_' . sanitize_title($plugin['slug']);
+                        $value = $plugin['id'];
+                        $label = $plugin['slug'];
+                    } elseif ($plugin['type'] === 'favorito') {
+                        // Para favoritos, usar el name basado en source
+                        if ($plugin['source'] === 'repo') {
+                            $post_key = isset($data['plugins'][$plugin['slug']]) ? $data['plugins'][$plugin['slug']] : '';
+                            $id = $post_key;
+                            $name = $post_key;
+                        } elseif ($plugin['source'] === 'local') {
+                            $zip = array_search($plugin['slug'], $data['locales']);
+                            if ($zip) {
+                                $id = 'local_' . sanitize_title($zip);
+                                $name = 'install_local_zip_' . sanitize_title($zip);
+                            }
+                        } elseif ($plugin['source'] === 'drive') {
+                            // Para drive, no se puede instalar desde favoritos directamente, pero mostrar
+                            $id = 'fav_' . sanitize_title($plugin['slug']);
+                            $name = 'install_fav_' . sanitize_title($plugin['slug']);
+                        }
+                        $label = $plugin['slug'];
+                    }
+
+                    echo '<div class="wpf-plugin-item">';
+                    echo '<input type="checkbox" id="' . esc_attr($id) . '" name="' . esc_attr($name) . '" value="' . esc_attr($value) . '">';
+                    echo '<label for="' . esc_attr($id) . '">' . $plugin['icon'] . ' ' . esc_html($label) . '</label>';
+                    if ($plugin['type'] !== 'favorito') {
+                        echo '<button type="button" class="add-fav-btn" data-slug="' . esc_attr($plugin['slug']) . '" data-source="' . esc_attr($plugin['source']) . '">Añadir a Favoritos</button>';
+                    }
+                    echo '</div>';
+                }
+                echo '</div>';
+                ?>
 
                 <div class="wpf-button-group">
                     <button type="submit" name="install_plugins" class="wpf-btn wpf-btn-primary" title="Instalar todos los plugins seleccionados desde el repositorio de WordPress o archivos ZIP locales">
@@ -817,53 +848,144 @@
                 <input type="hidden" name="create_menu" id="create_menu" value="0">
             </form>
         </div>
-    </div>
 
-    <!-- Tab Content: Templates -->
-    <div id="templates" class="wpf-tab-content">
+        <!-- Descargas de configuración JSON -->
         <div class="wpf-card">
             <div class="wpf-card-header">
-                <span class="wpf-card-icon">🎨</span>
-                <h2 class="wpf-card-title">Templates de Elementor</h2>
+                <span class="wpf-card-icon">⬇️</span>
+                <h2 class="wpf-card-title">Descargas de Configuración (JSON)</h2>
             </div>
-            <p class="wpf-card-description">Crea headers, footers y páginas usando templates predefinidos de Elementor</p>
+            <p class="wpf-card-description">Haz clic en los enlaces para descargar los archivos JSON de configuración.</p>
 
-            <div class="wpf-button-group">
-                <form method="post" action="" style="display: inline;">
-                    <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-                    <button type="submit" name="create_header" class="wpf-btn wpf-btn-primary" title="Crear un header profesional con Elementor usando templates predefinidos">
-                        🎨 Crear Header
-                    </button>
-                </form>
+            <div class="wpf-form-group">
+                <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'data/admin-site-enhancements-ase-settings-2025-10-14-0818.json'); ?>" download style="color:var(--wpfs-primary); text-decoration:underline; font-weight:600; margin-right:18px;">Descargar configuración ASE (JSON)</a>
 
-                <form method="post" action="" style="display: inline;">
-                    <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-                    <button type="submit" name="create_footer" class="wpf-btn wpf-btn-primary" title="Crear un footer profesional con Elementor usando templates predefinidos">
-                        🎨 Crear Footer
-                    </button>
-                </form>
-            </div>
-
-            <div class="wpf-card" style="margin-top: 30px; border-left: 4px solid var(--wpfs-warning); background: #fefefe;">
-                <div class="wpf-card-header">
-                    <span class="wpf-card-icon">⚠️</span>
-                    <h2 class="wpf-card-title">Eliminar Plugin</h2>
-                </div>
-                <p class="wpf-card-description">Esta acción eliminará permanentemente el plugin WP Fast Setup de tu instalación de WordPress.</p>
-
-                <form method="post" action="">
-                    <?php wp_nonce_field('wp_fast_setup_delete_action', 'wp_fast_setup_delete_nonce'); ?>
-                    <div class="wpf-button-group">
-                        <button type="submit" name="wp_fast_setup_delete_plugin" class="wpf-btn wpf-btn-warning"
-                            onclick="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');"
-                            title="Eliminar completamente WP Fast Setup y todos sus archivos (acción irreversible)">
-                            🗑️ Eliminar Permanentemente
-                        </button>
-                    </div>
-                </form>
+                <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'data/wp-rocket-settings-fast-2025-02-07-67a5ca0c3a004.json'); ?>" download style="color:var(--wpfs-primary); text-decoration:underline; font-weight:600;">Descargar configuración WP Rocket (JSON)</a>
             </div>
         </div>
+
+        <!-- Menu Creation Section -->
+        <div class="wpf-card">
+            <div class="wpf-card-header">
+                <span class="wpf-card-icon">🍽️</span>
+                <h2 class="wpf-card-title">Crear Menús de Navegación</h2>
+            </div>
+            <p class="wpf-card-description">Crea menús vacíos para organizar la navegación de tu sitio</p>
+
+            <form id="menu-form" method="post" action="">
+                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+
+                <div class="wpf-form-group">
+                    <label for="menus_input">Menús a Crear</label>
+                    <textarea name="menus_input" id="menus_input" placeholder="Ingrese un menú por línea."></textarea>
+                    <small style="color: var(--wpfs-text-light);">Ingrese un menú por línea. Cada línea será un menú separado.</small>
+                </div>
+
+                <div class="wpf-button-group">
+                    <button type="submit" name="create_menus" class="wpf-btn wpf-btn-primary" title="Crear menús vacíos">
+                        🍽️ Crear Menús
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Homepage Settings Section -->
+        <div class="wpf-card">
+            <div class="wpf-card-header">
+                <span class="wpf-card-icon">🏠</span>
+                <h2 class="wpf-card-title">Configurar Página Principal y Blogs</h2>
+            </div>
+            <p class="wpf-card-description">Establece qué páginas usar como página principal y página de blogs</p>
+
+            <form id="homepage-form" method="post" action="">
+                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+
+                <div class="wpf-form-group">
+                    <label for="homepage_page">Página Principal</label>
+                    <select name="homepage_page" id="homepage_page">
+                        <option value="">-- Seleccionar Página --</option>
+                        <?php
+                        $pages = get_pages();
+                        $current_homepage = get_option('page_on_front');
+                        foreach ($pages as $page) {
+                            $selected = ($page->ID == $current_homepage) ? 'selected' : '';
+                            echo '<option value="' . esc_attr($page->ID) . '" ' . $selected . '>' . esc_html($page->post_title) . '</option>';
+                        }
+                        ?>
+                    </select>
+                    <small style="color: var(--wpfs-text-light);">Selecciona la página que quieres usar como página principal de tu sitio</small>
+                </div>
+
+                <div class="wpf-form-group">
+                    <label for="blog_page">Página de Blogs</label>
+                    <select name="blog_page" id="blog_page">
+                        <option value="">-- Seleccionar Página --</option>
+                        <?php
+                        $current_blogpage = get_option('page_for_posts');
+                        foreach ($pages as $page) {
+                            $selected = ($page->ID == $current_blogpage) ? 'selected' : '';
+                            echo '<option value="' . esc_attr($page->ID) . '" ' . $selected . '>' . esc_html($page->post_title) . '</option>';
+                        }
+                        ?>
+                    </select>
+                    <small style="color: var(--wpfs-text-light);">Selecciona la página donde se mostrarán tus entradas de blog</small>
+                </div>
+
+                <div class="wpf-button-group">
+                    <button type="submit" name="set_homepage" class="wpf-btn wpf-btn-primary" title="Establecer las páginas seleccionadas como página principal y página de blogs">
+                        🏠 Establecer Páginas
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
+</div>
+
+<!-- Tab Content: Templates -->
+<div id="templates" class="wpf-tab-content">
+    <div class="wpf-card">
+        <div class="wpf-card-header">
+            <span class="wpf-card-icon">🎨</span>
+            <h2 class="wpf-card-title">Templates de Elementor</h2>
+        </div>
+        <p class="wpf-card-description">Crea headers, footers y páginas usando templates predefinidos de Elementor</p>
+
+        <div class="wpf-button-group">
+            <form method="post" action="" style="display: inline;">
+                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+                <button type="submit" name="create_header" class="wpf-btn wpf-btn-primary" title="Crear un header profesional con Elementor usando templates predefinidos">
+                    🎨 Crear Header
+                </button>
+            </form>
+
+            <form method="post" action="" style="display: inline;">
+                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+                <button type="submit" name="create_footer" class="wpf-btn wpf-btn-primary" title="Crear un footer profesional con Elementor usando templates predefinidos">
+                    🎨 Crear Footer
+                </button>
+            </form>
+        </div>
+
+        <div class="wpf-card" style="margin-top: 30px; border-left: 4px solid var(--wpfs-warning); background: #fefefe;">
+            <div class="wpf-card-header">
+                <span class="wpf-card-icon">⚠️</span>
+                <h2 class="wpf-card-title">Eliminar Plugin</h2>
+            </div>
+            <p class="wpf-card-description">Esta acción eliminará permanentemente el plugin WP Fast Setup de tu instalación de WordPress.</p>
+
+            <form method="post" action="">
+                <?php wp_nonce_field('wp_fast_setup_delete_action', 'wp_fast_setup_delete_nonce'); ?>
+                <div class="wpf-button-group">
+                    <button type="submit" name="wp_fast_setup_delete_plugin" class="wpf-btn wpf-btn-warning"
+                        onclick="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');"
+                        title="Eliminar completamente WP Fast Setup y todos sus archivos (acción irreversible)">
+                        🗑️ Eliminar Permanentemente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 
 </div>
@@ -1144,6 +1266,36 @@
         } else {
             console.error('WP Fast Setup: Content form not found');
         }
+
+        // Add to favorites
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('add-fav-btn')) {
+                const slug = e.target.getAttribute('data-slug');
+                const source = e.target.getAttribute('data-source');
+                const formData = new FormData();
+                formData.append('action', 'wp_fast_setup_add_favorite');
+                formData.append('slug', slug);
+                formData.append('source', source);
+                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_action'); ?>');
+
+                fetch(ajaxurl, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Plugin añadido a favoritos');
+                            location.reload(); // Recargar para mostrar en favoritos
+                        } else {
+                            alert('Error: ' + data.data);
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error al añadir a favoritos');
+                    });
+            }
+        });
     });
 
     // Function to set page creation action

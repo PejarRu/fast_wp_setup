@@ -14,6 +14,9 @@ class Admin_Pages
         add_action('wp_ajax_wp_fast_setup_create_pages', array($this, 'ajax_create_pages'));
         add_action('wp_ajax_wp_fast_setup_activate_features', array($this, 'ajax_activate_features'));
         add_action('wp_ajax_wp_fast_setup_save_google_drive', array($this, 'ajax_save_google_drive'));
+        add_action('wp_ajax_wp_fast_setup_add_favorite', array($this, 'ajax_add_favorite'));
+        add_action('wp_ajax_wp_fast_setup_create_menus', array($this, 'ajax_create_menus'));
+        add_action('wp_ajax_wp_fast_setup_set_homepage', array($this, 'ajax_set_homepage'));
 
         // Plugin deletion handler
         add_action('admin_post_wp_fast_setup_delete_plugin', array($this, 'handle_plugin_deletion'));
@@ -174,7 +177,7 @@ class Admin_Pages
         $paginas = get_posts([
             'post_type'      => 'page',
             'posts_per_page' => -1,
-            'post_status'    => 'publish',
+            'post_status'    => 'any',
         ]);
         foreach ($paginas as $pagina) {
             wp_delete_post($pagina->ID, true);
@@ -226,15 +229,13 @@ class Admin_Pages
             $drive_error = 'Configure su API Key y Folder ID de Google Drive para ver los plugins disponibles.';
         }
 
-        // Get local ZIP files as fallback
+        // Get local ZIP files always
         $local_zip_files = [];
-        if (empty($drive_zip_files)) {
-            $zip_dir = WP_FAST_SETUP_PLUGIN_DIR . 'zip-files/';
-            if (is_dir($zip_dir)) {
-                $zips = glob($zip_dir . '*.zip');
-                foreach ($zips as $zip) {
-                    $local_zip_files[] = basename($zip);
-                }
+        $zip_dir = WP_FAST_SETUP_PLUGIN_DIR . 'zip-files/';
+        if (is_dir($zip_dir)) {
+            $zips = glob($zip_dir . '*.zip');
+            foreach ($zips as $zip) {
+                $local_zip_files[] = basename($zip);
             }
         }
 
@@ -242,7 +243,7 @@ class Admin_Pages
         settings_errors('wp_fast_setup_messages');
 
         // Include the main admin page template.
-        include WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/templates/admin-page.php';
+        include WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/templates/admin-page-new.php';
 
         // Append the template creation form.
         //$this->handle_template_creations();
@@ -435,7 +436,103 @@ class Admin_Pages
                         submitBtn.prop('disabled', false).text(originalText);
                     }
                 });
-            });            // Handle features activation form
+            });
+
+            // Handle menu creation form
+            $('#menu-form').on('submit', function(e) {
+                e.preventDefault();
+
+                console.log('WP Fast Setup: Menu form submitted');
+
+                var formData = new FormData();
+                formData.append('action', 'wp_fast_setup_create_menus');
+                formData.append('nonce', wpFastSetupAjax.nonce);
+                formData.append('menus_input', $(this).find('[name=\"menus_input\"]').val());
+
+                console.log('WP Fast Setup: Menus form data - menus_input:', $(this).find('[name=\"menus_input\"]').val());
+
+                var submitBtn = $(this).find('button[type=\"submit\"]');
+                var originalText = submitBtn.text();
+
+                submitBtn.prop('disabled', true).text(wpFastSetupAjax.strings.processing);
+
+                $.ajax({
+                    url: wpFastSetupAjax.ajaxurl,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        console.log('WP Fast Setup: Menus creation response:', response);
+                        if (response.success) {
+                            submitBtn.text(wpFastSetupAjax.strings.success);
+                            setTimeout(function() {
+                                submitBtn.prop('disabled', false).text(originalText);
+                            }, 2000);
+                        } else {
+                            console.error('WP Fast Setup: Menus creation error:', response.data);
+                            alert(wpFastSetupAjax.strings.error + ': ' + response.data);
+                            submitBtn.prop('disabled', false).text(originalText);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('WP Fast Setup: AJAX error:', status, error);
+                        console.error('WP Fast Setup: XHR response:', xhr.responseText);
+                        alert(wpFastSetupAjax.strings.error);
+                        submitBtn.prop('disabled', false).text(originalText);
+                    }
+                });
+            });
+
+            // Handle homepage settings form
+            $('#homepage-form').on('submit', function(e) {
+                e.preventDefault();
+
+                console.log('WP Fast Setup: Homepage form submitted');
+
+                var formData = new FormData();
+                formData.append('action', 'wp_fast_setup_set_homepage');
+                formData.append('nonce', wpFastSetupAjax.nonce);
+                formData.append('homepage_page', $(this).find('[name=\"homepage_page\"]').val());
+                formData.append('blog_page', $(this).find('[name=\"blog_page\"]').val());
+
+                console.log('WP Fast Setup: Homepage form data - homepage_page:', $(this).find('[name=\"homepage_page\"]').val());
+                console.log('WP Fast Setup: Homepage form data - blog_page:', $(this).find('[name=\"blog_page\"]').val());
+
+                var submitBtn = $(this).find('button[type=\"submit\"]');
+                var originalText = submitBtn.text();
+
+                submitBtn.prop('disabled', true).text(wpFastSetupAjax.strings.processing);
+
+                $.ajax({
+                    url: wpFastSetupAjax.ajaxurl,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        console.log('WP Fast Setup: Homepage settings response:', response);
+                        if (response.success) {
+                            submitBtn.text(wpFastSetupAjax.strings.success);
+                            setTimeout(function() {
+                                submitBtn.prop('disabled', false).text(originalText);
+                            }, 2000);
+                        } else {
+                            console.error('WP Fast Setup: Homepage settings error:', response.data);
+                            alert(wpFastSetupAjax.strings.error + ': ' + response.data);
+                            submitBtn.prop('disabled', false).text(originalText);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('WP Fast Setup: AJAX error:', status, error);
+                        console.error('WP Fast Setup: XHR response:', xhr.responseText);
+                        alert(wpFastSetupAjax.strings.error);
+                        submitBtn.prop('disabled', false).text(originalText);
+                    }
+                });
+            });
+
+            // Handle features activation form
             $('#templates form').on('submit', function(e) {
                 e.preventDefault();
                 
@@ -911,6 +1008,112 @@ class Admin_Pages
     }
 
     /**
+     * AJAX handler for creating menus
+     */
+    public function ajax_create_menus()
+    {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_action')) {
+            wp_send_json_error('Invalid nonce');
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        try {
+            $menus_input = stripslashes($_POST['menus_input']);
+
+            // Create menus
+            $created_menus = $this->create_menus_from_input($menus_input);
+
+            wp_send_json_success(array(
+                'message' => 'Menús creados correctamente',
+                'menus_count' => count($created_menus)
+            ));
+        } catch (Exception $e) {
+            wp_send_json_error('Error al crear menús: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Create menus from the input.
+     * Returns an array with created menus info (ID, name)
+     */
+    private function create_menus_from_input($input)
+    {
+        $created_menus = array();
+
+        // Explode input into lines.
+        $lines = explode("\n", $input);
+
+        foreach ($lines as $line) {
+            $menu_name = trim($line);
+
+            // Skip empty lines.
+            if (empty($menu_name)) {
+                continue;
+            }
+
+            // Check if menu already exists.
+            if (wp_get_nav_menu_object($menu_name)) {
+                continue;
+            }
+
+            // Create the menu.
+            $menu_id = wp_create_nav_menu($menu_name);
+
+            if (!is_wp_error($menu_id)) {
+                $created_menus[] = array(
+                    'ID'   => $menu_id,
+                    'name' => $menu_name,
+                );
+            }
+        }
+
+        return $created_menus;
+    }
+
+    /**
+     * AJAX handler for setting homepage and blog page
+     */
+    public function ajax_set_homepage()
+    {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_action')) {
+            wp_send_json_error('Invalid nonce');
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        try {
+            $homepage_id = intval($_POST['homepage_page']);
+            $blogpage_id = intval($_POST['blog_page']);
+
+            // Set homepage
+            if ($homepage_id > 0) {
+                update_option('page_on_front', $homepage_id);
+                update_option('show_on_front', 'page');
+            }
+
+            // Set blog page
+            if ($blogpage_id > 0) {
+                update_option('page_for_posts', $blogpage_id);
+            }
+
+            wp_send_json_success(array(
+                'message' => 'Páginas configuradas correctamente',
+                'homepage_set' => $homepage_id > 0,
+                'blogpage_set' => $blogpage_id > 0
+            ));
+        } catch (Exception $e) {
+            wp_send_json_error('Error al configurar páginas: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * AJAX handler for activating features
      */
     public function ajax_activate_features()
@@ -994,6 +1197,54 @@ class Admin_Pages
             }
         } catch (Exception $e) {
             wp_send_json_error('Error al guardar configuración de Google Drive: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * AJAX handler for adding a plugin to favorites
+     */
+    public function ajax_add_favorite()
+    {
+        if (!wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_action')) {
+            wp_send_json_error('Invalid nonce');
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        $slug = sanitize_text_field($_POST['slug']);
+        $source = sanitize_text_field($_POST['source']);
+
+        if (empty($slug) || empty($source)) {
+            wp_send_json_error('Slug and source are required');
+        }
+
+        $json_file = WP_FAST_SETUP_PLUGIN_DIR . 'includes/plugins-list.json';
+        if (!file_exists($json_file)) {
+            wp_send_json_error('Plugins list file not found');
+        }
+
+        $data = json_decode(file_get_contents($json_file), true);
+        if (!isset($data['favoritos'])) {
+            $data['favoritos'] = [];
+        }
+
+        // Check if already in favorites
+        $exists = false;
+        foreach ($data['favoritos'] as $fav) {
+            if ($fav['slug'] === $slug) {
+                $exists = true;
+                break;
+            }
+        }
+
+        if (!$exists) {
+            $data['favoritos'][] = ['slug' => $slug, 'source' => $source];
+            file_put_contents($json_file, json_encode($data, JSON_PRETTY_PRINT));
+            wp_send_json_success('Plugin added to favorites');
+        } else {
+            wp_send_json_error('Plugin already in favorites');
         }
     }
 }
