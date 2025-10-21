@@ -63,7 +63,7 @@ class WP_Fast_Setup
             error_log('WP Fast Setup: Constructor called');
         });
         $this->load_dependencies();
-        $this->init_admin();
+        $this->init_hooks();
     }
 
     /**
@@ -92,22 +92,13 @@ class WP_Fast_Setup
         add_action('plugins_loaded', array($this, 'init_plugin'));
     }
 
-    private function init_admin()
-    {
-        if (is_admin()) {
-            $this->admin_pages = new Admin_Pages();
-        }
-    }
-
     /**
      * Initialize plugin components
      */
     public function init_plugin()
     {
-
         if (is_admin() && current_user_can('manage_options')) {
             error_log('WP Fast Setup: init_plugin called');
-            $this->admin_pages = new Admin_Pages();
 
             // Initialize media importer
             $this->media_importer = WP_Fast_Setup_Media_Importer::get_instance();

@@ -151,18 +151,18 @@ class Admin_Pages
             // This code is no longer needed since we handle the message directly in the form submission
         }
 
-    // Get current values
-    $current_site_name = get_option('blogname');
-    $current_language    = get_option('WPLANG');
-    $current_url         = get_option('siteurl');
-    $current_admin_email = get_option('admin_email');
-    $current_tagline     = get_option('blogdescription');
-    $current_logo_id     = get_option('wp_fast_setup_site_logo');
-    $current_favicon_id  = get_option('site_icon');
-    $current_blog_public = get_option('blog_public', 1); // 1 = indexable, 0 = not indexable
-    // Comment and permalink current values
-    $current_comment_status = get_option('default_comment_status', 'open'); // 'open' or 'closed'
-    $current_permalink_structure = get_option('permalink_structure', '');
+        // Get current values
+        $current_site_name = get_option('blogname');
+        $current_language    = get_option('WPLANG');
+        $current_url         = get_option('siteurl');
+        $current_admin_email = get_option('admin_email');
+        $current_tagline     = get_option('blogdescription');
+        $current_logo_id     = get_option('wp_fast_setup_site_logo');
+        $current_favicon_id  = get_option('site_icon');
+        $current_blog_public = get_option('blog_public', 1); // 1 = indexable, 0 = not indexable
+        // Comment and permalink current values
+        $current_comment_status = get_option('default_comment_status', 'open'); // 'open' or 'closed'
+        $current_permalink_structure = get_option('permalink_structure', '');
 
         // Get Google Drive files dynamically
         $api_key = get_option('wp_fast_setup_google_drive_api_key', '');

@@ -974,13 +974,13 @@
                         <label for="permalinks">🔗 Permalinks Amigables</label>
                     </div>
 
-                <div class="wpf-form-group">
-                    <label class="wpf-checkbox-label">
-                        <input type="checkbox" id="set_permalinks" name="set_permalinks" value="1" <?php checked($current_permalink_structure, '/index.php/%year%/%monthnum%/%day%/%postname%/'); ?>>
-                        <span class="wpf-checkbox-checkmark"></span>
-                        Configurar permalinks amigables (/año/mes/dia/nombre/)
-                    </label>
-                </div>
+                    <div class="wpf-form-group">
+                        <label class="wpf-checkbox-label">
+                            <input type="checkbox" id="set_permalinks" name="set_permalinks" value="1" <?php checked($current_permalink_structure, '/index.php/%year%/%monthnum%/%day%/%postname%/'); ?>>
+                            <span class="wpf-checkbox-checkmark"></span>
+                            Configurar permalinks amigables (/año/mes/dia/nombre/)
+                        </label>
+                    </div>
                     <div class="wpf-checkbox-item">
                         <input type="checkbox" id="hello_elementor" name="activar_hello_elementor">
                         <label for="hello_elementor">🎨 Tema Hello Elementor</label>
