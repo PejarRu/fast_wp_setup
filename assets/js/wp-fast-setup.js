@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (fixedProgressStatus) fixedProgressStatus.textContent = 'Instalando plugins...';
 
             // Send AJAX request
-            fetch(ajaxurl, {
+            fetch(window.wpfs_ajaxurl, {
                 method: 'POST',
                 body: formData
             })
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append('nonce', nonceField.value);
             }
 
-            fetch(ajaxurl, {
+            fetch(window.wpfs_ajaxurl, {
                 method: 'POST',
                 body: formData
             })
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('action', 'wp_fast_setup_save_google_drive');
             // Google Drive form doesn't have a nonce field, so we'll skip it
 
-            fetch(ajaxurl, {
+            fetch(window.wpfs_ajaxurl, {
                 method: 'POST',
                 body: formData
             })
@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log(key + ': ' + value);
             }
 
-            fetch(ajaxurl, {
+            fetch(window.wpfs_ajaxurl, {
                 method: 'POST',
                 body: formData
             })

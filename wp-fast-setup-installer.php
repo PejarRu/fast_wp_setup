@@ -41,6 +41,7 @@ class WP_Fast_Setup
     private static $instance = null;
     private $admin_pages;
     private $dev_tools;
+    private $media_importer;
 
     /**
      * Get singleton instance
@@ -66,7 +67,7 @@ class WP_Fast_Setup
     }
 
     /**
-     * Load required files
+     * Load plugin dependencies
      */
     private function load_dependencies()
     {
@@ -75,6 +76,7 @@ class WP_Fast_Setup
         require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/class-styles.php';
         require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/class-template-manager.php';
         require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/class-users.php';
+        require_once WP_FAST_SETUP_PLUGIN_DIR . 'includes/admin/class-media-importer.php';
 
         // Load development tools if in debug mode
         if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -106,6 +108,9 @@ class WP_Fast_Setup
         if (is_admin() && current_user_can('manage_options')) {
             error_log('WP Fast Setup: init_plugin called');
             $this->admin_pages = new Admin_Pages();
+
+            // Initialize media importer
+            $this->media_importer = WP_Fast_Setup_Media_Importer::get_instance();
 
             // Initialize development tools if in debug mode
             if (defined('WP_DEBUG') && WP_DEBUG) {

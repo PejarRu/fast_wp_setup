@@ -15,6 +15,7 @@ class Admin_Pages
         add_action('wp_ajax_wp_fast_setup_activate_features', array($this, 'ajax_activate_features'));
         add_action('wp_ajax_wp_fast_setup_save_google_drive', array($this, 'ajax_save_google_drive'));
         add_action('wp_ajax_wp_fast_setup_add_favorite', array($this, 'ajax_add_favorite'));
+        add_action('wp_ajax_wp_fast_setup_toggle_favorite', array($this, 'ajax_toggle_favorite'));
         add_action('wp_ajax_wp_fast_setup_create_menus', array($this, 'ajax_create_menus'));
         add_action('wp_ajax_wp_fast_setup_set_homepage', array($this, 'ajax_set_homepage'));
 
@@ -30,109 +31,57 @@ class Admin_Pages
      */
     public function register_admin_menu()
     {
-        error_log('WP Fast Setup: register_admin_menu called');
-
-        add_menu_page(
-            __('WP Fast Setup', 'wp-fast-setup'),    // Page title
-            __('WP Fast Setup', 'wp-fast-setup'),    // Menu title
-            'manage_options',                         // Capability
-            'wp-fast-setup',                         // Menu slug
-            array($this, 'render_admin_page'),       // Callback function
-            'dashicons-admin-generic',               // Icon
-            30                                       // Position
-        );
-        error_log('WP Fast Setup: register_admin_menu finished');
+        error_log('WP Fast Setup: Plugin installation data processing completed');
     }
 
     /**
-     * Handle form submissions (legacy - most operations now use AJAX)
-     */
-    public function handle_form_submissions()
-    {
-        $is_ajax = defined('WP_FAST_SETUP_ACTION') && WP_FAST_SETUP_ACTION;
-
-        if (!$is_ajax && (
-            !isset($_POST['wp_fast_setup_nonce']) ||
-            !wp_verify_nonce($_POST['wp_fast_setup_nonce'], 'wp_fast_setup_action')
-        )) {
-            return;
-        }
-
-        // Most operations are now handled via AJAX
-        // This method is kept for backward compatibility and any non-AJAX operations
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_ajax) {
-            // Handle any remaining non-AJAX operations here if needed
-            // Currently all main operations use AJAX
-        }
-    }
-
-    /**
-     * Create pages from the input.
-     * Returns an array with created pages info (ID, title, parent)
+     * Create pages from input text
      */
     private function create_pages_from_input($input)
     {
         $created_pages = array();
-        // Use the "default" template if selected; otherwise use "elementor_header_footer".
-        $template = (isset($_POST['page_template']) && $_POST['page_template'] === 'default') ? '' : 'elementor_header_footer';
+        $lines = explode("\n", trim($input));
+        $parent_stack = array();
+        $current_parent_id = 0;
 
-        // Explode input into lines.
-        $lines = explode("\n", $input);
-        $current_parent_id = 0; // For top-level pages.
         foreach ($lines as $line) {
-            $trimmed = rtrim($line, "\r\n");
+            $line = trim($line);
+            if (empty($line)) continue;
 
-            // Skip empty lines.
-            if (trim($trimmed) === '') {
-                continue;
+            $level = 0;
+            while (strpos($line, '-') === 0) {
+                $level++;
+                $line = substr($line, 1);
             }
+            $line = trim($line);
 
-            // Check if line has leading space (subpage) or is a top-level page.
-            if (substr($trimmed, 0, 1) === ' ') {
-                $title = trim($trimmed);
-                $parent = $current_parent_id;
-            } else {
-                $title = trim($trimmed);
-                $parent = 0;
-            }
+            if (empty($line)) continue;
 
-            // Skip if page already exists.
-            if (get_page_by_title($title)) {
-                continue;
-            }
-
-            // Create the page.
-            $post_id = wp_insert_post([
-                'post_title'   => $title,
+            $page_data = array(
+                'post_title' => $line,
                 'post_content' => '',
-                'post_status'  => 'publish',
-                'post_type'    => 'page',
-                'post_parent'  => $parent,
-            ]);
-
-            // Set the proper page template if using Elementor.
-            if ($template === 'elementor_header_footer') {
-                update_post_meta($post_id, '_wp_page_template', 'elementor_header_footer');
-                update_post_meta($post_id, '_edit_lock', time() . ':1');
-                update_post_meta($post_id, '_elementor_edit_mode', 'builder');
-                update_post_meta($post_id, '_elementor_template_type', 'wp-page');
-                update_post_meta($post_id, '_elementor_version', '3.28.3');
-                update_post_meta($post_id, '_elementor_pro_version', '3.8.1');
-                update_post_meta($post_id, '_edit_last', 1);
-            }
-
-            // Store info of created page.
-            $created_pages[] = array(
-                'ID'     => $post_id,
-                'title'  => $title,
-                'parent' => $parent,
+                'post_status' => 'publish',
+                'post_type' => 'page',
+                'post_parent' => $current_parent_id
             );
 
-            // Update current_parent_id for top-level pages.
-            if ($parent === 0) {
-                $current_parent_id = $post_id;
+            $post_id = wp_insert_post($page_data);
+            if (!is_wp_error($post_id)) {
+                $created_pages[] = array(
+                    'ID' => $post_id,
+                    'title' => $line,
+                    'parent' => $current_parent_id
+                );
+
+                // Update parent stack
+                while (count($parent_stack) > $level) {
+                    array_pop($parent_stack);
+                }
+                $parent_stack[] = $post_id;
+                $current_parent_id = ($level > 0) ? $parent_stack[$level - 1] : 0;
             }
         }
+
         return $created_pages;
     }
 
@@ -202,15 +151,18 @@ class Admin_Pages
             // This code is no longer needed since we handle the message directly in the form submission
         }
 
-        // Get current values
-        $current_site_name = get_option('blogname');
-        $current_language    = get_option('WPLANG');
-        $current_url         = get_option('siteurl');
-        $current_admin_email = get_option('admin_email');
-        $current_tagline     = get_option('blogdescription');
-        $current_logo_id     = get_option('wp_fast_setup_site_logo');
-        $current_favicon_id  = get_option('site_icon');
-        $current_blog_public = get_option('blog_public', 1); // 1 = indexable, 0 = not indexable
+    // Get current values
+    $current_site_name = get_option('blogname');
+    $current_language    = get_option('WPLANG');
+    $current_url         = get_option('siteurl');
+    $current_admin_email = get_option('admin_email');
+    $current_tagline     = get_option('blogdescription');
+    $current_logo_id     = get_option('wp_fast_setup_site_logo');
+    $current_favicon_id  = get_option('site_icon');
+    $current_blog_public = get_option('blog_public', 1); // 1 = indexable, 0 = not indexable
+    // Comment and permalink current values
+    $current_comment_status = get_option('default_comment_status', 'open'); // 'open' or 'closed'
+    $current_permalink_structure = get_option('permalink_structure', '');
 
         // Get Google Drive files dynamically
         $api_key = get_option('wp_fast_setup_google_drive_api_key', '');
@@ -255,10 +207,16 @@ class Admin_Pages
     public function get_drive_zip_files($api_key, $folder_id)
     {
         if (empty($api_key) || empty($folder_id)) {
+            error_log('WP Fast Setup Debug: API Key o Folder ID no configurados');
             return array('error' => 'API Key o Folder ID no configurados');
         }
 
+        error_log('WP Fast Setup Debug: API Key: ' . substr($api_key, 0, 10) . '...');
+        error_log('WP Fast Setup Debug: Folder ID: ' . $folder_id);
+
+        // Primero intentar con la query original (archivos en el folder)
         $url = "https://www.googleapis.com/drive/v3/files?q='" . urlencode($folder_id) . "'+in+parents&key=" . urlencode($api_key);
+        error_log('WP Fast Setup Debug: URL de API (folder query): ' . $url);
 
         $response = wp_remote_get($url, array(
             'timeout' => 15,
@@ -268,26 +226,59 @@ class Admin_Pages
         ));
 
         if (is_wp_error($response)) {
+            error_log('WP Fast Setup Debug: Error de conexión: ' . $response->get_error_message());
             return array('error' => 'Error de conexión: ' . $response->get_error_message());
         }
 
         $http_code = wp_remote_retrieve_response_code($response);
+        error_log('WP Fast Setup Debug: HTTP Code: ' . $http_code);
+
+        $body = wp_remote_retrieve_body($response);
+        error_log('WP Fast Setup Debug: Respuesta de API: ' . $body);
+
         if ($http_code !== 200) {
-            $body = wp_remote_retrieve_body($response);
             $error_data = json_decode($body, true);
             $error_msg = isset($error_data['error']['message']) ? $error_data['error']['message'] : 'Error HTTP ' . $http_code;
+            error_log('WP Fast Setup Debug: Error de API: ' . $error_msg);
             return array('error' => 'Error de API: ' . $error_msg);
         }
 
-        $body = wp_remote_retrieve_body($response);
         $data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log('WP Fast Setup Debug: Error al decodificar JSON: ' . json_last_error_msg());
             return array('error' => 'Error al decodificar respuesta JSON');
         }
 
         if (!isset($data['files'])) {
+            error_log('WP Fast Setup Debug: Respuesta inesperada - no hay files key');
             return array('error' => 'Respuesta inesperada de Google Drive API');
+        }
+
+        error_log('WP Fast Setup Debug: Encontrados ' . count($data['files']) . ' archivos en el folder');
+
+        // Si no hay archivos en el folder, intentar buscar archivos .zip públicos globalmente
+        if (empty($data['files'])) {
+            error_log('WP Fast Setup Debug: No hay archivos en el folder, intentando búsqueda global de .zip');
+
+            $url = "https://www.googleapis.com/drive/v3/files?q=name+contains+'.zip'&key=" . urlencode($api_key);
+            error_log('WP Fast Setup Debug: URL de API (global search): ' . $url);
+
+            $response = wp_remote_get($url, array(
+                'timeout' => 15,
+                'headers' => array(
+                    'User-Agent' => 'WP-Fast-Setup/1.0'
+                )
+            ));
+
+            if (!is_wp_error($response)) {
+                $http_code = wp_remote_retrieve_response_code($response);
+                if ($http_code === 200) {
+                    $body = wp_remote_retrieve_body($response);
+                    $data = json_decode($body, true);
+                    error_log('WP Fast Setup Debug: Búsqueda global encontró ' . count($data['files']) . ' archivos .zip');
+                }
+            }
         }
 
         $zip_files = array();
@@ -300,7 +291,86 @@ class Admin_Pages
             }
         }
 
+        error_log('WP Fast Setup Debug: Archivos ZIP encontrados: ' . count($zip_files));
+
         return $zip_files;
+    }
+
+    /**
+     * Función de prueba manual para verificar Google Drive API
+     */
+    public function test_drive_connection()
+    {
+        $api_key = get_option('wp_fast_setup_google_drive_api_key', '');
+        $folder_id = get_option('wp_fast_setup_google_drive_folder_id', '');
+
+        echo '<h3>🔍 Prueba de Conexión Google Drive</h3>';
+        echo '<pre>';
+
+        if (empty($api_key)) {
+            echo "❌ API Key no configurada\n";
+            return;
+        }
+
+        if (empty($folder_id)) {
+            echo "❌ Folder ID no configurado\n";
+            return;
+        }
+
+        echo "✅ API Key configurada (primeros 10 caracteres): " . substr($api_key, 0, 10) . "...\n";
+        echo "✅ Folder ID configurado: $folder_id\n\n";
+
+        // Probar conexión al folder
+        $url = "https://www.googleapis.com/drive/v3/files?q='" . urlencode($folder_id) . "'+in+parents&key=" . urlencode($api_key);
+        echo "🔗 URL de prueba: $url\n\n";
+
+        $response = wp_remote_get($url, array('timeout' => 15));
+
+        if (is_wp_error($response)) {
+            echo "❌ Error de conexión: " . $response->get_error_message() . "\n";
+            return;
+        }
+
+        $http_code = wp_remote_retrieve_response_code($response);
+        echo "📊 Código HTTP: $http_code\n";
+
+        if ($http_code !== 200) {
+            $body = wp_remote_retrieve_body($response);
+            $error_data = json_decode($body, true);
+            $error_msg = isset($error_data['error']['message']) ? $error_data['error']['message'] : 'Error desconocido';
+            echo "❌ Error de API: $error_msg\n";
+            echo "📄 Respuesta completa: $body\n";
+            return;
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        $data = json_decode($body, true);
+
+        if (!isset($data['files'])) {
+            echo "❌ Respuesta inesperada - no hay campo 'files'\n";
+            echo "📄 Respuesta: $body\n";
+            return;
+        }
+
+        $total_files = count($data['files']);
+        echo "✅ Conexión exitosa - $total_files archivos encontrados en el folder\n";
+
+        $zip_count = 0;
+        foreach ($data['files'] as $file) {
+            if (isset($file['name']) && strpos($file['name'], '.zip') !== false) {
+                $zip_count++;
+                echo "📦 ZIP encontrado: {$file['name']} (ID: {$file['id']})\n";
+            }
+        }
+
+        echo "\n📈 Total archivos ZIP: $zip_count\n";
+
+        if ($zip_count === 0) {
+            echo "\n💡 Sugerencia: Verifica que los archivos .zip estén directamente en el folder (no en subfolders)\n";
+            echo "💡 Asegúrate de que el folder esté compartido como 'Cualquier persona con el enlace puede ver'\n";
+        }
+
+        echo '</pre>';
     }
 
     /**
@@ -761,6 +831,103 @@ class Admin_Pages
     }
 
     /**
+     * AJAX handler for saving site settings
+     */
+    public function ajax_save_site_settings()
+    {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_action')) {
+            wp_send_json_error('Invalid nonce');
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        try {
+            $site_name = sanitize_text_field($_POST['nombre_sitio']);
+            $admin_email = sanitize_email($_POST['admin_email']);
+            $site_language = sanitize_text_field($_POST['idioma_sitio']);
+            $site_url = esc_url_raw($_POST['url_sitio']);
+            $disable_comments = isset($_POST['disable_comments']) ? intval($_POST['disable_comments']) : 0;
+            $set_permalinks = isset($_POST['set_permalinks']) ? intval($_POST['set_permalinks']) : 0;
+
+            // Update site name
+            if (!empty($site_name)) {
+                update_option('blogname', $site_name);
+            }
+
+            // Update admin email in options and current user
+            if (!empty($admin_email) && is_email($admin_email)) {
+                update_option('admin_email', $admin_email);
+
+                // Update current user's email
+                $current_user = wp_get_current_user();
+                if ($current_user->ID) {
+                    wp_update_user(array(
+                        'ID' => $current_user->ID,
+                        'user_email' => $admin_email
+                    ));
+                }
+            }
+
+            // Update site URL
+            if (!empty($site_url)) {
+                update_option('siteurl', $site_url);
+                update_option('home', $site_url);
+            }
+
+            // Update language
+            if (!empty($site_language)) {
+                update_option('WPLANG', $site_language);
+
+                // Also update locale if needed
+                if (function_exists('switch_to_locale')) {
+                    switch_to_locale($site_language);
+                }
+            }
+
+            // Handle comments disabling
+            if ($disable_comments) {
+                // Close comments on all existing posts
+                global $wpdb;
+                $wpdb->query("UPDATE $wpdb->posts SET comment_status = 'closed' WHERE post_type = 'post'");
+
+                // Set default comment status to closed for future posts
+                update_option('default_comment_status', 'closed');
+
+                // Disable comments on pages too
+                update_option('default_page_comments', 0);
+
+                // Close pingbacks/trackbacks
+                update_option('default_ping_status', 'closed');
+                update_option('default_pingback_flag', 0);
+            }
+
+            // Handle permalinks
+            if ($set_permalinks) {
+                update_option('permalink_structure', '/index.php/%year%/%monthnum%/%day%/%postname%/');
+
+                // Flush rewrite rules
+                global $wp_rewrite;
+                $wp_rewrite->flush_rules();
+            }
+
+            wp_send_json_success(array(
+                'message' => 'Configuración del sitio guardada correctamente',
+                'site_name_updated' => !empty($site_name),
+                'admin_email_updated' => !empty($admin_email),
+                'site_url_updated' => !empty($site_url),
+                'language_updated' => !empty($site_language),
+                'comments_disabled' => $disable_comments,
+                'permalinks_set' => $set_permalinks
+            ));
+        } catch (Exception $e) {
+            wp_send_json_error('Error al guardar configuración: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Handle plugin self-deletion
      */
     public function handle_plugin_deletion()
@@ -878,94 +1045,6 @@ class Admin_Pages
         );
 
         return isset($languages[$lang_code]) ? $languages[$lang_code] : $lang_code;
-    }
-
-    /**
-     * AJAX handler for saving site settings
-     */
-    public function ajax_save_site_settings()
-    {
-        error_log('WP Fast Setup: ajax_save_site_settings called');
-
-        // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_action')) {
-            error_log('WP Fast Setup: Invalid nonce in ajax_save_site_settings');
-            wp_send_json_error('Invalid nonce');
-        }
-
-        if (!current_user_can('manage_options')) {
-            error_log('WP Fast Setup: Insufficient permissions in ajax_save_site_settings');
-            wp_send_json_error('Insufficient permissions');
-        }
-
-        try {
-            error_log('WP Fast Setup: Processing site settings update');
-
-            // Site Settings
-            if (!empty($_POST['nombre_sitio'])) {
-                $old_name = get_option('blogname');
-                $new_name = sanitize_text_field($_POST['nombre_sitio']);
-                update_option('blogname', $new_name);
-                error_log("WP Fast Setup: Blog name updated from '$old_name' to '$new_name'");
-            }
-
-            if (!empty($_POST['idioma_sitio'])) {
-                $new_language = sanitize_text_field($_POST['idioma_sitio']);
-                $current_language = get_option('WPLANG');
-
-                if ($new_language !== $current_language) {
-                    update_option('WPLANG', $new_language);
-                    wp_cache_flush();
-                    error_log("WP Fast Setup: Language updated from '$current_language' to '$new_language'");
-                }
-            }
-
-            if (!empty($_POST['url_sitio'])) {
-                $old_url = get_option('siteurl');
-                $new_url = esc_url_raw($_POST['url_sitio']);
-                update_option('siteurl', $new_url);
-                update_option('home', $new_url);
-                error_log("WP Fast Setup: Site URL updated from '$old_url' to '$new_url'");
-            }
-
-            if (!empty($_POST['admin_email'])) {
-                $old_email = get_option('admin_email');
-                $new_email = sanitize_email($_POST['admin_email']);
-                update_option('admin_email', $new_email);
-                error_log("WP Fast Setup: Admin email updated from '$old_email' to '$new_email'");
-            }
-
-            if (!empty($_POST['site_tagline'])) {
-                $old_tagline = get_option('blogdescription');
-                $new_tagline = sanitize_text_field($_POST['site_tagline']);
-                update_option('blogdescription', $new_tagline);
-                error_log("WP Fast Setup: Site tagline updated from '$old_tagline' to '$new_tagline'");
-            }
-
-            // Handle blog visibility (indexing)
-            $blog_public = isset($_POST['blog_public']) ? 1 : 0;
-            update_option('blog_public', $blog_public);
-
-            // Handle logo upload
-            if (!empty($_FILES['site_logo']['name'])) {
-                $logo_attachment_id = $this->handle_image_upload('site_logo');
-                if ($logo_attachment_id) {
-                    update_option('wp_fast_setup_site_logo', $logo_attachment_id);
-                }
-            }
-
-            // Handle favicon upload
-            if (!empty($_FILES['site_favicon']['name'])) {
-                $favicon_attachment_id = $this->handle_image_upload('site_favicon');
-                if ($favicon_attachment_id) {
-                    update_option('site_icon', $favicon_attachment_id);
-                }
-            }
-
-            wp_send_json_success('Configuración del sitio guardada correctamente');
-        } catch (Exception $e) {
-            wp_send_json_error('Error al guardar la configuración: ' . $e->getMessage());
-        }
     }
 
     /**
@@ -1245,6 +1324,65 @@ class Admin_Pages
             wp_send_json_success('Plugin added to favorites');
         } else {
             wp_send_json_error('Plugin already in favorites');
+        }
+    }
+
+    /**
+     * AJAX handler for toggling plugin favorites
+     */
+    public function ajax_toggle_favorite()
+    {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_action')) {
+            wp_send_json_error('Invalid nonce');
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        $slug = sanitize_text_field($_POST['slug']);
+        $source = sanitize_text_field($_POST['source']);
+        $is_favorite = intval($_POST['is_favorite']);
+
+        $json_file = WP_FAST_SETUP_PLUGIN_DIR . 'includes/plugins-list.json';
+
+        if (!file_exists($json_file)) {
+            wp_send_json_error('Plugin list file not found');
+        }
+
+        $data = json_decode(file_get_contents($json_file), true);
+
+        if (!isset($data['favoritos'])) {
+            $data['favoritos'] = [];
+        }
+
+        // Find and remove if exists, or add if not exists
+        $found_index = -1;
+        foreach ($data['favoritos'] as $index => $fav) {
+            if ($fav['slug'] === $slug && $fav['source'] === $source) {
+                $found_index = $index;
+                break;
+            }
+        }
+
+        if ($is_favorite && $found_index === -1) {
+            // Add to favorites
+            $data['favoritos'][] = ['slug' => $slug, 'source' => $source];
+            $message = 'Plugin añadido a favoritos';
+        } elseif (!$is_favorite && $found_index !== -1) {
+            // Remove from favorites
+            array_splice($data['favoritos'], $found_index, 1);
+            $message = 'Plugin removido de favoritos';
+        } else {
+            wp_send_json_error('Invalid operation');
+        }
+
+        // Save updated data
+        if (file_put_contents($json_file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE))) {
+            wp_send_json_success($message);
+        } else {
+            wp_send_json_error('Error saving favorites');
         }
     }
 }

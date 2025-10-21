@@ -45,9 +45,42 @@ define('WP_FAST_SETUP_DEFAULT_FOLDER_ID', $_ENV['GOOGLE_DRIVE_FOLDER_ID'] ?? '')
 
 **Nota:** El archivo `wp-fast-setup-installer.php` está incluido en `.gitignore` para evitar commits accidentales de credenciales.
 
-## �🔧 Estado del Sistema
+## �️ Importación Automática de Medios
 
-✅ **Funcionalidades implementadas:**
+### Cómo Funciona
+
+El plugin incluye una funcionalidad automática para importar imágenes desde la carpeta `assets/images/` a la galería de medios de WordPress.
+
+### Configuración
+
+1. **Ubicación de imágenes**: `wp-fast-setup/assets/images/`
+2. **Formatos soportados**: PNG, JPG, JPEG, GIF, WEBP
+3. **Importación automática**: Se ejecuta al activar el plugin
+4. **Prevención de duplicados**: Las imágenes ya existentes no se duplican
+
+### Uso desde el Panel de Administración
+
+1. Ve al panel de administración de WordPress
+2. Navega a **WP Fast Setup**
+3. Haz clic en la pestaña **🖼️ Medios**
+4. Verás un resumen de imágenes disponibles e importadas
+5. Haz clic en **"🖼️ Importar Imágenes a Galería"** para importar manualmente
+6. Las imágenes aparecerán en **Medios > Biblioteca**
+
+### Agregar Nuevas Imágenes
+
+1. Coloca tus archivos de imagen en `wp-fast-setup/assets/images/`
+2. Ve a la pestaña **Medios** en WP Fast Setup
+3. Haz clic en **"Importar Imágenes a Galería"**
+4. Las nuevas imágenes se importarán automáticamente
+
+### Limpieza
+
+Si necesitas eliminar las imágenes importadas:
+- En la pestaña **Medios**, haz clic en **"🗑️ Eliminar Imágenes Importadas"**
+- Esto eliminará todas las imágenes que fueron importadas por el plugin
+
+**Nota:** Esta acción no se puede deshacer. Las imágenes se eliminarán permanentemente de la galería de medios.
 - AJAX completo para todas las operaciones
 - Diagnóstico mejorado de Google Drive
 - Instalación de plugins desde múltiples fuentes
