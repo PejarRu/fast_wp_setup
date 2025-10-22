@@ -1,7 +1,15 @@
 console.log('WP Fast Setup: Script loaded successfully!');
+window.WPFastSetupMain = true;
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('WP Fast Setup: DOMContentLoaded fired');
+
+    const ajaxUrl = (window.wpFastSetupAjax && window.wpFastSetupAjax.ajaxurl) || window.wpfs_ajaxurl || (typeof ajaxurl !== 'undefined' ? ajaxurl : '');
+    const defaultNonce = (window.wpFastSetupAjax && window.wpFastSetupAjax.nonce) || '';
+
+    if (!ajaxUrl) {
+        console.warn('WP Fast Setup: AJAX URL not available. AJAX-powered actions may fail.');
+    }
 
     // Tab switching
     const tabs = document.querySelectorAll('.wpf-tab');
@@ -65,31 +73,119 @@ document.addEventListener('DOMContentLoaded', function() {
     const fixedProgressFill = document.getElementById('wpf-fixed-progress-fill');
     const fixedProgressStatus = document.querySelector('.wpf-fixed-progress-status');
 
+    function collectPluginSelections(form) {
+        const selections = {
+            repo: [],
+            local: [],
+            drive: [],
+            any: []
+        };
+
+        if (!form) {
+            return selections;
+        }
+
+        const checkboxes = form.querySelectorAll('.wpf-plugin-checkbox:checked');
+        checkboxes.forEach(checkbox => {
+            const effectiveType = checkbox.dataset.pluginEffectiveType || checkbox.dataset.pluginSource || checkbox.dataset.pluginType || 'repo';
+            const slug = checkbox.dataset.pluginSlug || checkbox.value || '';
+            const label = checkbox.dataset.pluginLabel || slug;
+            const entry = {
+                type: effectiveType,
+                slug,
+                label
+            };
+
+            if (effectiveType === 'repo') {
+                if (slug && !selections.repo.includes(slug)) {
+                    selections.repo.push(slug);
+                }
+            } else if (effectiveType === 'local') {
+                const zip = checkbox.dataset.pluginZip || checkbox.value || slug;
+                if (zip) {
+                    entry.zip = zip;
+                    if (!selections.local.some(item => item.zip === zip)) {
+                        selections.local.push({
+                            zip,
+                            label
+                        });
+                    }
+                }
+            } else if (effectiveType === 'drive') {
+                const driveId = checkbox.dataset.pluginDriveId || checkbox.value || '';
+                if (driveId) {
+                    entry.id = driveId;
+                    if (!selections.drive.some(item => item.id === driveId)) {
+                        selections.drive.push({
+                            id: driveId,
+                            name: slug || label
+                        });
+                    }
+                }
+            } else if (slug) {
+                if (!selections.repo.includes(slug)) {
+                    selections.repo.push(slug);
+                }
+            }
+
+            selections.any.push(entry);
+        });
+
+        return selections;
+    }
+
     if (pluginForm) {
         pluginForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            console.log('WP Fast Setup: Plugin form submitted');
 
-            // Collect form data
-            const formData = new FormData(pluginForm);
-            formData.append('action', 'wp_fast_setup_install_plugins');
-            const nonceField = document.getElementById('wp_fast_setup_nonce_plugins');
+            if (!ajaxUrl) {
+                alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                return;
+            }
+
+            if (fixedProgress) {
+                fixedProgress.classList.add('show');
+            }
+            if (fixedProgressFill) {
+                fixedProgressFill.style.width = '0%';
+            }
+            if (fixedProgressStatus) {
+                fixedProgressStatus.textContent = 'Preparando instalación...';
+            }
+
+            const selections = collectPluginSelections(pluginForm);
+            if (!selections.any.length) {
+                if (fixedProgressStatus) {
+                    fixedProgressStatus.textContent = 'Selecciona al menos un plugin.';
+                }
+                alert('Debes seleccionar al menos un plugin para instalar.');
+                setTimeout(() => {
+                    if (fixedProgress) {
+                        fixedProgress.classList.remove('show');
+                    }
+                }, 2000);
+                return;
+            }
+
+            if (fixedProgressStatus) {
+                fixedProgressStatus.textContent = `Instalando ${selections.any.length} plugin${selections.any.length === 1 ? '' : 's'}...`;
+            }
+
+            const formData = new FormData();
+            const nonceField = pluginForm.querySelector('input[name="wp_fast_setup_nonce_plugins"]');
             if (nonceField) {
-                formData.append('nonce', nonceField.value);
+                formData.append('wp_fast_setup_nonce_plugins', nonceField.value);
             }
-
-            console.log('WP Fast Setup: Plugin form data collected');
-            for (let [key, value] of formData.entries()) {
-                console.log(key + ': ' + value);
+            if (defaultNonce) {
+                formData.append('nonce', defaultNonce);
             }
+            formData.append('action', 'wp_fast_setup_install_plugins');
 
-            // Show progress bar
-            if (fixedProgress) fixedProgress.classList.add('show');
-            if (fixedProgressFill) fixedProgressFill.style.width = '50%';
-            if (fixedProgressStatus) fixedProgressStatus.textContent = 'Instalando plugins...';
+            selections.repo.forEach(slug => formData.append('plugins[]', slug));
+            selections.local.forEach(item => formData.append('local_zips[]', item.zip));
+            selections.drive.forEach(item => formData.append('drive_files[' + item.id + ']', item.name));
 
-            // Send AJAX request
-            fetch(window.wpfs_ajaxurl, {
+            fetch(ajaxUrl, {
                 method: 'POST',
                 body: formData
             })
@@ -97,44 +193,78 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('WP Fast Setup: Plugin AJAX response:', data);
                 if (data.success) {
-                    if (fixedProgressFill) fixedProgressFill.style.width = '100%';
-                    if (fixedProgressStatus) fixedProgressStatus.textContent = 'Instalación completada exitosamente';
+                    if (fixedProgressFill) {
+                        fixedProgressFill.style.width = '100%';
+                    }
+                    if (fixedProgressStatus) {
+                        fixedProgressStatus.textContent = 'Instalación completada exitosamente';
+                    }
                     setTimeout(() => {
-                        if (fixedProgress) fixedProgress.classList.remove('show');
+                        if (fixedProgress) {
+                            fixedProgress.classList.remove('show');
+                        }
                         location.reload();
                     }, 2000);
                 } else {
-                    if (fixedProgressStatus) fixedProgressStatus.textContent = 'Error: ' + (data.message || 'Error desconocido');
+                    const errorMessage = data.message || (data.data && data.data.message) || 'Error desconocido';
+                    if (fixedProgressStatus) {
+                        fixedProgressStatus.textContent = 'Error: ' + errorMessage;
+                    }
+                    alert('❌ Error: ' + errorMessage);
                     setTimeout(() => {
-                        if (fixedProgress) fixedProgress.classList.remove('show');
+                        if (fixedProgress) {
+                            fixedProgress.classList.remove('show');
+                        }
                     }, 3000);
                 }
             })
             .catch(error => {
                 console.error('WP Fast Setup: Plugin AJAX error:', error);
-                if (fixedProgressStatus) fixedProgressStatus.textContent = 'Error de conexión';
+                if (fixedProgressStatus) {
+                    fixedProgressStatus.textContent = 'Error de conexión';
+                }
+                alert('❌ Error de conexión al instalar plugins');
                 setTimeout(() => {
-                    if (fixedProgress) fixedProgress.classList.remove('show');
+                    if (fixedProgress) {
+                        fixedProgress.classList.remove('show');
+                    }
                 }, 3000);
             });
         });
     }
 
     // AJAX form submission for site settings
-    const siteSettingsForm = document.querySelector('#site form');
+    const siteSettingsForm = document.querySelector('#site-settings-form');
     if (siteSettingsForm) {
+        let isSubmitting = false; // Prevent double submission
+
         siteSettingsForm.addEventListener('submit', function(e) {
             e.preventDefault();
+
+            if (isSubmitting) return; // Prevent double submission
+            isSubmitting = true;
+
             console.log('WP Fast Setup: Site settings form submitted');
+
+            if (!ajaxUrl) {
+                alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                isSubmitting = false;
+                return;
+            }
 
             const formData = new FormData(siteSettingsForm);
             formData.append('action', 'wp_fast_setup_save_site_settings');
-            const nonceField = document.getElementById('wp_fast_setup_nonce_site');
-            if (nonceField) {
-                formData.append('nonce', nonceField.value);
+            if (defaultNonce) {
+                formData.append('nonce', defaultNonce);
             }
 
-            fetch(window.wpfs_ajaxurl, {
+            // Log all form data
+            console.log('WP Fast Setup: Form data:');
+            for (let [key, value] of formData.entries()) {
+                console.log(key + ': ' + value);
+            }
+
+            fetch(ajaxUrl, {
                 method: 'POST',
                 body: formData
             })
@@ -142,15 +272,22 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('WP Fast Setup: Site settings response:', data);
                 if (data.success) {
-                    alert('✅ Configuración del sitio guardada correctamente');
-                    location.reload();
+                    let message = '✅ Configuración del sitio guardada correctamente';
+                    if (data.language_updated && !data.language_available) {
+                        message += '\n⚠️ Los archivos de idioma no están disponibles. El cambio de idioma puede no surtir efecto hasta que instales los archivos de idioma correspondientes.';
+                    }
+                    alert(message);
+                    // Force reload from server to ensure language changes take effect
+                    window.location.reload(true);
                 } else {
                     alert('❌ Error: ' + (data.message || 'Error desconocido'));
                 }
+                isSubmitting = false; // Reset flag
             })
             .catch(error => {
                 console.error('WP Fast Setup: Site settings error:', error);
                 alert('❌ Error de conexión al guardar configuración');
+                isSubmitting = false; // Reset flag
             });
         });
     }
@@ -158,15 +295,109 @@ document.addEventListener('DOMContentLoaded', function() {
     // AJAX form submission for Google Drive settings
     const googleDriveForm = document.querySelector('#google-drive-form');
     if (googleDriveForm) {
+        const driveApiInput = document.getElementById('wpfs_google_drive_api_key');
+        const driveFolderInput = document.getElementById('wpfs_google_drive_folder_id');
+        const useAntonButton = document.getElementById('wpfs-use-anton-drive');
+        const testDriveButton = document.getElementById('wpfs-test-drive');
+        const driveResultBox = document.getElementById('wpfs-google-drive-test-result');
+
+        if (useAntonButton && driveApiInput && driveFolderInput) {
+            useAntonButton.addEventListener('click', function() {
+                const defaultApi = this.dataset.defaultApi || '';
+                const defaultFolder = this.dataset.defaultFolder || '';
+                if (defaultApi) {
+                    driveApiInput.value = defaultApi;
+                }
+                if (defaultFolder) {
+                    driveFolderInput.value = defaultFolder;
+                }
+                if (driveResultBox) {
+                    driveResultBox.style.display = 'block';
+                    driveResultBox.style.color = '#2271b1';
+                    driveResultBox.textContent = 'Valores de Anton cargados. Guarda o prueba la conexión cuando quieras.';
+                }
+            });
+        }
+
+        if (testDriveButton && driveApiInput && driveFolderInput) {
+            testDriveButton.addEventListener('click', function() {
+                if (!ajaxUrl) {
+                    alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                    return;
+                }
+
+                if (driveResultBox) {
+                    driveResultBox.style.display = 'block';
+                    driveResultBox.style.color = '#646970';
+                    driveResultBox.textContent = 'Probando conexión con Google Drive...';
+                }
+
+                testDriveButton.disabled = true;
+
+                const formData = new FormData();
+                formData.append('action', 'wp_fast_setup_test_google_drive');
+                if (defaultNonce) {
+                    formData.append('nonce', defaultNonce);
+                }
+                formData.append('google_drive_api_key', driveApiInput.value.trim());
+                formData.append('google_drive_folder_id', driveFolderInput.value.trim());
+
+                fetch(ajaxUrl, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const payload = data && typeof data.data !== 'undefined' ? data.data : {};
+                    if (driveResultBox) {
+                        driveResultBox.style.display = 'block';
+                        if (data.success) {
+                            driveResultBox.style.color = '#008a20';
+                            const filesFound = typeof payload.files_found !== 'undefined' ? payload.files_found : 0;
+                            const baseMessage = payload.message || 'Conexión correcta con Google Drive.';
+                            driveResultBox.textContent = `${baseMessage}${filesFound ? ` (ZIPs encontrados: ${filesFound})` : ''}`;
+                        } else {
+                            driveResultBox.style.color = '#b32d2e';
+                            const errorMessage = typeof payload === 'string' && payload ? payload : (data.message || 'No se pudo probar la conexión.');
+                            driveResultBox.textContent = errorMessage;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('WP Fast Setup: Google Drive test error:', error);
+                    if (driveResultBox) {
+                        driveResultBox.style.display = 'block';
+                        driveResultBox.style.color = '#b32d2e';
+                        driveResultBox.textContent = error.message;
+                    }
+                })
+                .finally(() => {
+                    testDriveButton.disabled = false;
+                });
+            });
+        }
+
         googleDriveForm.addEventListener('submit', function(e) {
             e.preventDefault();
             console.log('WP Fast Setup: Google Drive form submitted');
 
+            if (!ajaxUrl) {
+                alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                return;
+            }
+
             const formData = new FormData(googleDriveForm);
             formData.append('action', 'wp_fast_setup_save_google_drive');
-            // Google Drive form doesn't have a nonce field, so we'll skip it
+            if (defaultNonce) {
+                formData.append('nonce', defaultNonce);
+            }
 
-            fetch(window.wpfs_ajaxurl, {
+            fetch(ajaxUrl, {
                 method: 'POST',
                 body: formData
             })
@@ -191,52 +422,75 @@ document.addEventListener('DOMContentLoaded', function() {
     const featuresForm = document.querySelector('#features-form');
     if (featuresForm) {
         console.log('WP Fast Setup: Features form found');
-        featuresForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            console.log('WP Fast Setup: Features form submitted');
+        const featureButtons = featuresForm.querySelectorAll('.wpf-feature-btn');
+        const nonceField = featuresForm.querySelector('input[name="wp_fast_setup_nonce_features"]');
+        const nonceValue = nonceField ? nonceField.value : '';
 
-            const formData = new FormData(featuresForm);
-            formData.append('action', 'wp_fast_setup_activate_features');
-            const nonceField = document.getElementById('wp_fast_setup_nonce_features');
-            if (nonceField) {
-                formData.append('nonce', nonceField.value);
-            }
-
-            console.log('WP Fast Setup: Features form data collected');
-            for (let [key, value] of formData.entries()) {
-                console.log(key + ': ' + value);
-            }
-
-            fetch(window.wpfs_ajaxurl, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        featureButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const feature = this.dataset.feature;
+                if (!feature) {
+                    console.warn('WP Fast Setup: Feature button without feature attribute');
+                    return;
                 }
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    return response.json();
-                } else {
-                    // Si no es JSON, convertir a texto y devolver como error
+
+                if (!ajaxUrl) {
+                    alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                    return;
+                }
+
+                const confirmMessage = this.dataset.confirm;
+                if (confirmMessage && !window.confirm(confirmMessage)) {
+                    return;
+                }
+
+                const originalText = this.innerHTML;
+                this.disabled = true;
+                this.innerHTML = '<span class="wpf-feature-label">⏳ Aplicando...</span>';
+
+                const formData = new FormData();
+                formData.append('action', 'wp_fast_setup_activate_features');
+                if (defaultNonce) {
+                    formData.append('nonce', defaultNonce);
+                }
+                if (nonceValue) {
+                    formData.append('wp_fast_setup_nonce_features', nonceValue);
+                }
+                formData.append('features[]', feature);
+
+                fetch(ajaxUrl, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return response.json();
+                    }
                     return response.text().then(text => {
                         throw new Error('Respuesta no JSON: ' + text.substring(0, 100));
                     });
-                }
-            })
-            .then(data => {
-                console.log('WP Fast Setup: Features response:', data);
-                if (data.success) {
-                    alert('✅ Características aplicadas correctamente');
-                    location.reload();
-                } else {
-                    alert('❌ Error: ' + (data.message || 'Error desconocido'));
-                }
-            })
-            .catch(error => {
-                console.error('WP Fast Setup: Features error:', error);
-                alert('❌ Error de conexión al aplicar características');
+                })
+                .then(data => {
+                    console.log('WP Fast Setup: Feature response for', feature, data);
+                    if (data.success) {
+                        alert('✅ Característica aplicada correctamente');
+                        window.location.reload();
+                    } else {
+                        this.disabled = false;
+                        this.innerHTML = originalText;
+                        alert('❌ Error: ' + (data.message || 'Error desconocido'));
+                    }
+                })
+                .catch(error => {
+                    console.error('WP Fast Setup: Feature error:', error);
+                    alert('❌ Error de conexión al aplicar característica');
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                });
             });
         });
     }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * WP Fast Setup - Development Tools
  * Herramientas para desarrollo y testing sin reinstalar el plugin
@@ -14,9 +15,11 @@ if (!is_admin() || !current_user_can('manage_options')) {
     return;
 }
 
-class WP_Fast_Setup_Dev_Tools {
+class WP_Fast_Setup_Dev_Tools
+{
 
-    public function __construct() {
+    public function __construct()
+    {
         add_action('admin_menu', array($this, 'add_dev_menu'));
         add_action('admin_bar_menu', array($this, 'add_dev_toolbar'), 100);
         add_action('wp_ajax_wpfs_dev_reload', array($this, 'reload_plugin'));
@@ -26,7 +29,8 @@ class WP_Fast_Setup_Dev_Tools {
     /**
      * Add development menu
      */
-    public function add_dev_menu() {
+    public function add_dev_menu()
+    {
         add_submenu_page(
             'wp-fast-setup',
             'Dev Tools',
@@ -40,7 +44,8 @@ class WP_Fast_Setup_Dev_Tools {
     /**
      * Add development toolbar
      */
-    public function add_dev_toolbar($wp_admin_bar) {
+    public function add_dev_toolbar($wp_admin_bar)
+    {
         $wp_admin_bar->add_node(array(
             'id'    => 'wpfs-dev-tools',
             'title' => '🔄 WPFS Dev',
@@ -68,8 +73,9 @@ class WP_Fast_Setup_Dev_Tools {
     /**
      * Render development tools page
      */
-    public function render_dev_page() {
-        ?>
+    public function render_dev_page()
+    {
+?>
         <div class="wrap">
             <h1>🛠️ WP Fast Setup - Development Tools</h1>
 
@@ -124,17 +130,20 @@ class WP_Fast_Setup_Dev_Tools {
                 gap: 20px;
                 margin: 20px 0;
             }
+
             .wpfs-dev-card {
                 background: #fff;
                 border: 1px solid #ccd0d4;
                 padding: 20px;
                 border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             }
+
             .wpfs-dev-card h3 {
                 margin-top: 0;
                 color: #2271b1;
             }
+
             .wpfs-dev-logs {
                 background: #f9f9f9;
                 border: 1px solid #e5e5e5;
@@ -142,6 +151,7 @@ class WP_Fast_Setup_Dev_Tools {
                 border-radius: 8px;
                 margin-top: 30px;
             }
+
             .wpfs-dev-logs pre {
                 background: #fff;
                 padding: 10px;
@@ -153,53 +163,71 @@ class WP_Fast_Setup_Dev_Tools {
         </style>
 
         <script>
-        function wpfsDevReload() {
-            jQuery.post(ajaxurl, {
-                action: 'wpfs_dev_reload',
-                nonce: '<?php echo wp_create_nonce('wpfs_dev_reload'); ?>'
-            }, function(response) {
-                if (response.success) {
+            function wpfsDevReload() {
+                jQuery.post(ajaxurl, {
+                    action: 'wpfs_dev_reload',
+                    nonce: '<?php echo wp_create_nonce('wpfs_dev_reload'); ?>'
+                }, function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + response.data);
+                    }
+                });
+            }
+
+            function wpfsDevClearCache() {
+                jQuery.post(ajaxurl, {
+                    action: 'wpfs_dev_clear_cache',
+                    nonce: '<?php echo wp_create_nonce('wpfs_dev_clear_cache'); ?>'
+                }, function(response) {
+                    jQuery('#wpfs-cache-status').html(response.success ? '✅ Cache cleared!' : '❌ Error: ' + response.data);
+                });
+            }
+
+            jQuery(document).ready(function($) {
+                $('#wpfs-reload-btn').click(function() {
+                    wpfsDevReload();
+                });
+
+                $('#wpfs-cache-btn').click(function() {
+                    wpfsDevClearCache();
+                });
+
+                $('#wpfs-refresh-logs').click(function() {
                     location.reload();
-                } else {
-                    alert('Error: ' + response.data);
-                }
+                });
             });
-        }
-
-        function wpfsDevClearCache() {
-            jQuery.post(ajaxurl, {
-                action: 'wpfs_dev_clear_cache',
-                nonce: '<?php echo wp_create_nonce('wpfs_dev_clear_cache'); ?>'
-            }, function(response) {
-                jQuery('#wpfs-cache-status').html(response.success ? '✅ Cache cleared!' : '❌ Error: ' + response.data);
-            });
-        }
-
-        jQuery(document).ready(function($) {
-            $('#wpfs-reload-btn').click(function() {
-                wpfsDevReload();
-            });
-
-            $('#wpfs-cache-btn').click(function() {
-                wpfsDevClearCache();
-            });
-
-            $('#wpfs-refresh-logs').click(function() {
-                location.reload();
-            });
-        });
         </script>
-        <?php
+<?php
     }
 
     /**
      * Reload plugin (deactivate and reactivate)
      */
-    public function reload_plugin() {
-        check_ajax_referer('wpfs_dev_reload', 'nonce');
+    public function reload_plugin()
+    {
+        // Verify nonce - check both possible field names
+        $nonce_valid = false;
+        if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], 'wpfs_dev_reload')) {
+            $nonce_valid = true;
+        } elseif (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'wpfs_dev_reload')) {
+            $nonce_valid = true;
+        }
 
-        if (!current_user_can('manage_options')) {
-            wp_die('Insufficient permissions');
+        if (!$nonce_valid) {
+            wp_send_json_error('Invalid nonce');
+        }
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error('User not logged in');
+            return;
+        }
+
+        // For AJAX requests, be less strict with permissions
+        if (!wp_doing_ajax() && !current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+            return;
         }
 
         $plugin_file = plugin_basename(WP_FAST_SETUP_PLUGIN_DIR . 'wp-fast-setup-installer.php');
@@ -220,11 +248,29 @@ class WP_Fast_Setup_Dev_Tools {
     /**
      * Clear various caches
      */
-    public function clear_cache() {
-        check_ajax_referer('wpfs_dev_clear_cache', 'nonce');
+    public function clear_cache()
+    {
+        // Verify nonce - check both possible field names
+        $nonce_valid = false;
+        if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], 'wpfs_dev_clear_cache')) {
+            $nonce_valid = true;
+        } elseif (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'wpfs_dev_clear_cache')) {
+            $nonce_valid = true;
+        }
 
-        if (!current_user_can('manage_options')) {
-            wp_die('Insufficient permissions');
+        if (!$nonce_valid) {
+            wp_send_json_error('Invalid nonce');
+        }
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error('User not logged in');
+            return;
+        }
+
+        // For AJAX requests, be less strict with permissions
+        if (!wp_doing_ajax() && !current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+            return;
         }
 
         // Clear WordPress cache
@@ -243,7 +289,8 @@ class WP_Fast_Setup_Dev_Tools {
     /**
      * Show recent debug logs
      */
-    private function show_recent_logs() {
+    private function show_recent_logs()
+    {
         $log_file = WP_CONTENT_DIR . '/debug.log';
 
         if (!file_exists($log_file)) {

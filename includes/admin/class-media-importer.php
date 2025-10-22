@@ -212,13 +212,27 @@ class WP_Fast_Setup_Media_Importer
      */
     public function ajax_import_media()
     {
-        // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wp_fast_setup_import_media')) {
+        // Verify nonce - check both possible field names
+        $nonce_valid = false;
+        if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], 'wp_fast_setup_import_media')) {
+            $nonce_valid = true;
+        } elseif (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_import_media')) {
+            $nonce_valid = true;
+        }
+
+        if (!$nonce_valid) {
             wp_send_json_error('Invalid nonce');
         }
 
-        if (!current_user_can('upload_files')) {
+        if (!is_user_logged_in()) {
+            wp_send_json_error('User not logged in');
+            return;
+        }
+
+        // For AJAX requests, be less strict with permissions
+        if (!wp_doing_ajax() && !current_user_can('upload_files')) {
             wp_send_json_error('Insufficient permissions');
+            return;
         }
 
         try {
