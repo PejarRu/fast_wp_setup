@@ -775,6 +775,12 @@
                 </div>
 
                 <div class="wpf-form-group">
+                    <label for="site_tagline">Descripción corta</label>
+                    <input type="text" id="site_tagline" name="descripcion_corta" value="<?php echo esc_attr($current_tagline); ?>" placeholder="Un eslogan memorable para tu sitio">
+                    <small class="wpf-form-help">Este texto aparece en algunos temas junto al título del sitio y en resultados de búsqueda.</small>
+                </div>
+
+                <div class="wpf-form-group">
                     <label for="site_language">Idioma del Sitio</label>
                     <select id="site_language" name="idioma_sitio">
                         <option value="es_ES" <?php selected($current_language, 'es_ES'); ?>>Español</option>
