@@ -1066,51 +1066,51 @@
             </form>
         </div>
     </div>
-        <!-- Tab Content: Templates -->
-        <div id="templates" class="wpf-tab-content">
-            <div class="wpf-card">
+    <!-- Tab Content: Templates -->
+    <div id="templates" class="wpf-tab-content">
+        <div class="wpf-card">
+            <div class="wpf-card-header">
+                <span class="wpf-card-icon">🎨</span>
+                <h2 class="wpf-card-title">Templates de Elementor</h2>
+            </div>
+            <p class="wpf-card-description">Crea headers, footers y páginas usando templates predefinidos de Elementor</p>
+
+            <div class="wpf-button-group">
+                <form method="post" action="" style="display: inline;">
+                    <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+                    <button type="submit" name="create_header" class="wpf-btn wpf-btn-primary" title="Crear un header profesional con Elementor usando templates predefinidos">
+                        🎨 Crear Header
+                    </button>
+                </form>
+
+                <form method="post" action="" style="display: inline;">
+                    <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+                    <button type="submit" name="create_footer" class="wpf-btn wpf-btn-primary" title="Crear un footer profesional con Elementor usando templates predefinidos">
+                        🎨 Crear Footer
+                    </button>
+                </form>
+            </div>
+
+            <div class="wpf-card" style="margin-top: 30px; border-left: 4px solid var(--wpfs-warning); background: #fefefe;">
                 <div class="wpf-card-header">
-                    <span class="wpf-card-icon">🎨</span>
-                    <h2 class="wpf-card-title">Templates de Elementor</h2>
+                    <span class="wpf-card-icon">⚠️</span>
+                    <h2 class="wpf-card-title">Eliminar Plugin</h2>
                 </div>
-                <p class="wpf-card-description">Crea headers, footers y páginas usando templates predefinidos de Elementor</p>
+                <p class="wpf-card-description">Esta acción eliminará permanentemente el plugin WP Fast Setup de tu instalación de WordPress.</p>
 
-                <div class="wpf-button-group">
-                    <form method="post" action="" style="display: inline;">
-                        <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-                        <button type="submit" name="create_header" class="wpf-btn wpf-btn-primary" title="Crear un header profesional con Elementor usando templates predefinidos">
-                            🎨 Crear Header
+                <form method="post" action="">
+                    <?php wp_nonce_field('wp_fast_setup_delete_action', 'wp_fast_setup_delete_nonce'); ?>
+                    <div class="wpf-button-group">
+                        <button type="submit" name="wp_fast_setup_delete_plugin" class="wpf-btn wpf-btn-warning"
+                            onclick="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');"
+                            title="Eliminar completamente WP Fast Setup y todos sus archivos (acción irreversible)">
+                            🗑️ Eliminar Permanentemente
                         </button>
-                    </form>
-
-                    <form method="post" action="" style="display: inline;">
-                        <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-                        <button type="submit" name="create_footer" class="wpf-btn wpf-btn-primary" title="Crear un footer profesional con Elementor usando templates predefinidos">
-                            🎨 Crear Footer
-                        </button>
-                    </form>
-                </div>
-
-                <div class="wpf-card" style="margin-top: 30px; border-left: 4px solid var(--wpfs-warning); background: #fefefe;">
-                    <div class="wpf-card-header">
-                        <span class="wpf-card-icon">⚠️</span>
-                        <h2 class="wpf-card-title">Eliminar Plugin</h2>
                     </div>
-                    <p class="wpf-card-description">Esta acción eliminará permanentemente el plugin WP Fast Setup de tu instalación de WordPress.</p>
-
-                    <form method="post" action="">
-                        <?php wp_nonce_field('wp_fast_setup_delete_action', 'wp_fast_setup_delete_nonce'); ?>
-                        <div class="wpf-button-group">
-                            <button type="submit" name="wp_fast_setup_delete_plugin" class="wpf-btn wpf-btn-warning"
-                                onclick="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');"
-                                title="Eliminar completamente WP Fast Setup y todos sus archivos (acción irreversible)">
-                                🗑️ Eliminar Permanentemente
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                </form>
             </div>
         </div>
     </div>
+</div>
 
-    <?php settings_errors('wp_fast_setup_messages'); ?>
+<?php settings_errors('wp_fast_setup_messages'); ?>
