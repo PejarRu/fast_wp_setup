@@ -64,7 +64,6 @@ class SiteSettingsHandler
             $admin_email = sanitize_email($_POST['admin_email']);
             $site_language = sanitize_text_field($_POST['idioma_sitio']);
             $site_url = esc_url_raw($_POST['url_sitio']);
-            $site_tagline = isset($_POST['descripcion_corta']) ? sanitize_text_field($_POST['descripcion_corta']) : '';
             $disable_comments = isset($_POST['disable_comments']) ? intval($_POST['disable_comments']) : 0;
             $set_permalinks = isset($_POST['set_permalinks']) ? intval($_POST['set_permalinks']) : 0;
 
@@ -72,8 +71,6 @@ class SiteSettingsHandler
             if (!empty($site_name)) {
                 update_option('blogname', $site_name);
             }
-
-            update_option('blogdescription', $site_tagline);
 
             // Update admin email in options and admin user
             if (!empty($admin_email) && is_email($admin_email)) {
@@ -177,7 +174,6 @@ class SiteSettingsHandler
             wp_send_json_success(array(
                 'message' => 'Configuración del sitio guardada correctamente',
                 'site_name_updated' => !empty($site_name),
-                'site_tagline_updated' => true,
                 'admin_email_updated' => !empty($admin_email),
                 'site_url_updated' => !empty($site_url),
                 'language_updated' => !empty($site_language),

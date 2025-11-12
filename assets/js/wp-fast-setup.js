@@ -68,6 +68,27 @@ const initWPFastSetup = () => {
         });
     }
 
+    const menuPresetSelect = document.getElementById('menu_presets_select');
+    if (menuPresetSelect) {
+        menuPresetSelect.addEventListener('change', function() {
+            const menuPreset = this.value;
+            const menuTextarea = document.getElementById('menus_input');
+            if (!menuTextarea) return;
+
+            let menuPresetText = '';
+
+            switch (menuPreset) {
+                case 'legal_footer_main':
+                    menuPresetText = "Legal Menu\nFooter Menu\nMain Menu";
+                    break;
+                default:
+                    menuPresetText = '';
+            }
+
+            menuTextarea.value = menuPresetText;
+        });
+    }
+
     // AJAX form submission for plugins
     const pluginForm = document.querySelector('#plugins form');
     const fixedProgress = document.getElementById('wpf-fixed-progress');

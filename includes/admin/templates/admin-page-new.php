@@ -775,12 +775,6 @@
                 </div>
 
                 <div class="wpf-form-group">
-                    <label for="site_tagline">Descripción corta</label>
-                    <input type="text" id="site_tagline" name="descripcion_corta" value="<?php echo esc_attr($current_tagline); ?>" placeholder="Un eslogan memorable para tu sitio">
-                    <small class="wpf-form-help">Este texto aparece en algunos temas junto al título del sitio y en resultados de búsqueda.</small>
-                </div>
-
-                <div class="wpf-form-group">
                     <label for="site_language">Idioma del Sitio</label>
                     <select id="site_language" name="idioma_sitio">
                         <option value="es_ES" <?php selected($current_language, 'es_ES'); ?>>Español</option>
@@ -1269,6 +1263,15 @@
                     <label for="menus_input">Menús a Crear</label>
                     <textarea name="menus_input" id="menus_input" placeholder="Ingrese un menú por línea."></textarea>
                     <small style="color: var(--wpfs-text-light);">Ingrese un menú por línea. Cada línea será un menú separado.</small>
+                </div>
+
+                <div class="wpf-form-group">
+                    <label for="menu_presets_select">Presets de Menús</label>
+                    <select id="menu_presets_select">
+                        <option value="">-- Seleccionar preset --</option>
+                        <option value="legal_footer_main">Legal + Footer + Principal</option>
+                    </select>
+                    <small style="color: var(--wpfs-text-light);">Elige un preset para autocompletar la lista de menús sugeridos.</small>
                 </div>
 
                 <div class="wpf-button-group">
