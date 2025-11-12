@@ -203,15 +203,87 @@ class PageCreator
         }
 
         try {
-            $menu_input = stripslashes($_POST['menu_input']);
-            $menu_name = sanitize_text_field($_POST['menu_name'] ?? 'Main Menu');
+            $raw_menus_input = '';
+            $legacy_menu_input = '';
+            if (isset($_POST['menus_input'])) {
+                $raw_menus_input = wp_unslash($_POST['menus_input']);
+            }
+            if (isset($_POST['menu_input'])) {
+                $legacy_menu_input = wp_unslash($_POST['menu_input']);
+                if ('' === $raw_menus_input) {
+                    $raw_menus_input = $legacy_menu_input;
+                }
+            }
 
-            $created_menu = $this->create_menu_from_input($menu_input, $menu_name);
+            if ('' === trim($raw_menus_input)) {
+                wp_send_json_error('No se proporcionaron menús para crear.');
+            }
 
-            wp_send_json_success(array(
-                'message' => 'Menú creado correctamente',
-                'menu_id' => $created_menu
-            ));
+            $use_legacy_flow = isset($_POST['menu_input']) && !isset($_POST['menus_input']);
+            if ($use_legacy_flow) {
+                $menu_name = sanitize_text_field($_POST['menu_name'] ?? 'Main Menu');
+                if ('' === trim($legacy_menu_input)) {
+                    wp_send_json_error('No se proporcionaron elementos para el menú.');
+                }
+
+                $created_menu = $this->create_menu_from_input($legacy_menu_input, $menu_name ?: 'Main Menu');
+
+                wp_send_json_success(array(
+                    'message' => 'Menú creado correctamente',
+                    'menu_id' => $created_menu,
+                    'created' => array($menu_name ?: 'Main Menu'),
+                    'legacy' => true,
+                ));
+            }
+
+            $menu_lines = preg_split('/\r\n|\r|\n/', $raw_menus_input);
+            $menu_lines = array_filter(array_map('trim', $menu_lines));
+
+            if (empty($menu_lines)) {
+                wp_send_json_error('No se encontraron menús válidos.');
+            }
+
+            $created = array();
+            $skipped = array();
+            $errors = array();
+
+            foreach ($menu_lines as $menu_line) {
+                $menu_name = sanitize_text_field($menu_line);
+                if ('' === $menu_name) {
+                    continue;
+                }
+
+                $existing_menu = wp_get_nav_menu_object($menu_name);
+                if ($existing_menu) {
+                    $skipped[] = $menu_name;
+                    continue;
+                }
+
+                $menu_id = wp_create_nav_menu($menu_name);
+                if (is_wp_error($menu_id)) {
+                    $errors[] = $menu_name . ': ' . $menu_id->get_error_message();
+                    continue;
+                }
+
+                $created[] = $menu_name;
+            }
+
+            if (!empty($errors) && empty($created)) {
+                wp_send_json_error('Error al crear menús: ' . implode('; ', $errors));
+            }
+
+            $response = array(
+                'message' => 'Menús procesados correctamente',
+                'created' => $created,
+                'skipped' => $skipped,
+                'errors' => $errors,
+            );
+
+            if (empty($created) && !empty($skipped)) {
+                $response['message'] = 'Todos los menús ya existían';
+            }
+
+            wp_send_json_success($response);
         } catch (Exception $e) {
             wp_send_json_error('Error al crear menú: ' . $e->getMessage());
         }

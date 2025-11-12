@@ -89,6 +89,97 @@ const initWPFastSetup = () => {
         });
     }
 
+    const menuForm = document.getElementById('menu-form');
+    if (menuForm && !menuForm.dataset.wpfsAjaxBound) {
+        menuForm.dataset.wpfsAjaxBound = '1';
+        menuForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (!ajaxUrl) {
+                alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                return;
+            }
+
+            const submitter = e.submitter || menuForm.querySelector('button[type="submit"]');
+            const originalText = submitter ? submitter.textContent : '';
+            if (submitter) {
+                submitter.disabled = true;
+                submitter.textContent = 'Procesando...';
+            }
+
+            const menusTextarea = document.getElementById('menus_input');
+            const menusValue = menusTextarea ? menusTextarea.value.trim() : '';
+
+            if (!menusValue) {
+                alert('Ingresa al menos un nombre de menú.');
+                if (submitter) {
+                    submitter.disabled = false;
+                    submitter.textContent = originalText || '🍽️ Crear Menús';
+                }
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'wp_fast_setup_create_menus');
+            if (defaultNonce) {
+                formData.append('nonce', defaultNonce);
+            }
+            formData.append('menus_input', menusValue);
+
+            fetch(ajaxUrl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('WP Fast Setup: Menus response:', data);
+                if (data.success) {
+                    const payload = data.data || {};
+                    let message = payload.message || 'Menús creados correctamente';
+                    if (payload.created && payload.created.length) {
+                        message += `\nCreados: ${payload.created.join(', ')}`;
+                    }
+                    if (payload.skipped && payload.skipped.length) {
+                        message += `\nYa existían: ${payload.skipped.join(', ')}`;
+                    }
+                    alert('✅ ' + message);
+                    if (menusTextarea && payload.created && payload.created.length) {
+                        menusTextarea.value = '';
+                    }
+                    if (submitter) {
+                        submitter.textContent = '✅ Completado';
+                    }
+                    setTimeout(() => {
+                        if (submitter) {
+                            submitter.disabled = false;
+                            submitter.textContent = originalText || '🍽️ Crear Menús';
+                        }
+                    }, 2000);
+                } else {
+                    const errorPayload = data.data || data.message || 'Error desconocido';
+                    alert('❌ Error: ' + errorPayload);
+                    if (submitter) {
+                        submitter.disabled = false;
+                        submitter.textContent = originalText || '🍽️ Crear Menús';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('WP Fast Setup: Menus error:', error);
+                alert('❌ Error de conexión: ' + error.message);
+                if (submitter) {
+                    submitter.disabled = false;
+                    submitter.textContent = originalText || '🍽️ Crear Menús';
+                }
+            });
+        });
+    }
+
     // AJAX form submission for plugins
     const pluginForm = document.querySelector('#plugins form');
     const fixedProgress = document.getElementById('wpf-fixed-progress');
@@ -502,6 +593,10 @@ const initWPFastSetup = () => {
             .then(data => {
                 console.log('WP Fast Setup: Pages response:', data);
                 if (data.success) {
+                    const payload = data.data || {};
+                    if (payload.message) {
+                        alert('✅ ' + payload.message);
+                    }
                     if (submitter) {
                         submitter.textContent = '✅ Completado';
                     }
