@@ -527,6 +527,10 @@ const initWPFastSetup = () => {
     const elementorFaviconRemoveBtn = document.getElementById('remove-elementor-favicon-btn');
     const importKitLogosButton = document.getElementById('wpfs-import-kit-logos');
     const importKitLogosStatus = document.getElementById('wpfs-import-kit-logos-status');
+    const deleteInactiveThemesButton = document.getElementById('wpfs-delete-inactive-themes');
+    const deleteInactiveThemesStatus = document.getElementById('wpfs-delete-inactive-themes-status');
+    const deleteInactivePluginsButton = document.getElementById('wpfs-delete-inactive-plugins');
+    const deleteInactivePluginsStatus = document.getElementById('wpfs-delete-inactive-plugins-status');
 
     const updateAdminSummary = () => {
         if (!adminSummary) {
@@ -897,6 +901,197 @@ const initWPFastSetup = () => {
             .finally(() => {
                 importKitLogosButton.disabled = false;
                 importKitLogosButton.textContent = originalText;
+            });
+        });
+    }
+
+    function handleCleanupAction(button, statusElement, options) {
+        if (!button) {
+            return;
+        }
+
+        const {
+            action,
+            confirmMessage,
+            runningText,
+            successDefault,
+            errorDefault
+        } = options || {};
+
+        if (!ajaxUrl) {
+            alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+            return;
+        }
+
+        if (confirmMessage && !window.confirm(confirmMessage)) {
+            return;
+        }
+
+        const originalText = button.textContent;
+        button.disabled = true;
+        if (runningText) {
+            button.textContent = runningText;
+        }
+
+        if (statusElement) {
+            statusElement.style.color = '#646970';
+            statusElement.textContent = 'Procesando...';
+        }
+
+        const formData = new FormData();
+        if (action) {
+            formData.append('action', action);
+        }
+
+        const buttonNonce = button.dataset ? (button.dataset.nonce || '') : '';
+        if (buttonNonce) {
+            formData.append('_wpnonce', buttonNonce);
+        }
+
+        if (defaultNonce) {
+            formData.append('nonce', defaultNonce);
+        }
+
+        fetch(ajaxUrl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            const payload = data && data.data ? data.data : {};
+
+            if (data && data.success) {
+                const errorsRaw = payload.errors || {};
+                const deletedRaw = payload.deleted || [];
+                const errorCount = typeof payload.errors_count !== 'undefined'
+                    ? parseInt(payload.errors_count, 10)
+                    : (Array.isArray(errorsRaw) ? errorsRaw.length : (errorsRaw && typeof errorsRaw === 'object' ? Object.keys(errorsRaw).length : 0));
+                const deletedCount = typeof payload.deleted_count !== 'undefined'
+                    ? parseInt(payload.deleted_count, 10)
+                    : (Array.isArray(deletedRaw) ? deletedRaw.length : 0);
+                const message = payload.message || successDefault || 'Acción completada.';
+
+                if (statusElement) {
+                    let statusColor = '#646970';
+                    if (errorCount > 0 && deletedCount > 0) {
+                        statusColor = '#dba617';
+                    } else if (errorCount > 0) {
+                        statusColor = '#b32d2e';
+                    } else if (deletedCount > 0) {
+                        statusColor = '#008a20';
+                    }
+                    statusElement.style.color = statusColor;
+                    statusElement.textContent = message;
+                }
+
+                let alertPrefix = 'ℹ️ ';
+                if (errorCount > 0 && deletedCount > 0) {
+                    alertPrefix = '⚠️ ';
+                } else if (errorCount > 0) {
+                    alertPrefix = '❌ ';
+                } else if (deletedCount > 0) {
+                    alertPrefix = '✅ ';
+                }
+
+                let alertMessage = alertPrefix + message;
+
+                if (deletedCount > 0) {
+                    if (Array.isArray(deletedRaw) && deletedRaw.length) {
+                        const listPreview = deletedRaw.slice(0, 5).join(', ');
+                        alertMessage += `\n\nEliminados: ${listPreview}`;
+                        if (deletedRaw.length > 5) {
+                            alertMessage += ` y ${deletedRaw.length - 5} más`;
+                        }
+                    } else {
+                        alertMessage += `\n\nElementos eliminados: ${deletedCount}`;
+                    }
+                }
+
+                if (errorCount > 0) {
+                    const errorDetails = [];
+                    if (Array.isArray(errorsRaw)) {
+                        errorsRaw.forEach(err => {
+                            if (typeof err === 'string') {
+                                errorDetails.push(err);
+                            } else if (err && err.slug && err.message) {
+                                errorDetails.push(`${err.slug}: ${err.message}`);
+                            }
+                        });
+                    } else if (errorsRaw && typeof errorsRaw === 'object') {
+                        Object.keys(errorsRaw).forEach(key => {
+                            errorDetails.push(`${key}: ${errorsRaw[key]}`);
+                        });
+                    }
+
+                    if (errorDetails.length) {
+                        const previewErrors = errorDetails.slice(0, 5).map(line => `- ${line}`);
+                        alertMessage += '\n\nErrores:\n' + previewErrors.join('\n');
+                        if (errorDetails.length > 5) {
+                            alertMessage += '\n...';
+                        }
+                    }
+                }
+
+                alert(alertMessage);
+            } else {
+                const message = (data && data.message) || errorDefault || 'No se pudo completar la acción.';
+
+                if (statusElement) {
+                    statusElement.style.color = '#b32d2e';
+                    statusElement.textContent = message;
+                }
+
+                let alertMessage = '❌ ' + message;
+                if (data && data.data && data.data.errors) {
+                    const errors = data.data.errors;
+                    if (Array.isArray(errors)) {
+                        if (errors.length) {
+                            alertMessage += '\n\n' + errors.join('\n');
+                        }
+                    } else if (errors && typeof errors === 'object') {
+                        const errorLines = Object.keys(errors).map(key => `${key}: ${errors[key]}`);
+                        if (errorLines.length) {
+                            alertMessage += '\n\n' + errorLines.join('\n');
+                        }
+                    }
+                }
+                alert(alertMessage);
+            }
+        })
+        .catch(error => {
+            console.error(`WP Fast Setup: ${action || 'cleanup'} error:`, error);
+            if (statusElement) {
+                statusElement.style.color = '#b32d2e';
+                statusElement.textContent = error.message;
+            }
+            alert('❌ Error de conexión: ' + error.message);
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.textContent = originalText;
+        });
+    }
+
+    if (deleteInactiveThemesButton) {
+        deleteInactiveThemesButton.addEventListener('click', () => {
+            handleCleanupAction(deleteInactiveThemesButton, deleteInactiveThemesStatus, {
+                action: 'wp_fast_setup_delete_inactive_themes',
+                confirmMessage: '¿Seguro que quieres eliminar todos los temas no activos? Esta acción no se puede deshacer.',
+                runningText: '⏳ Limpiando...',
+                successDefault: 'Temas inactivos eliminados correctamente.',
+                errorDefault: 'No se pudieron eliminar los temas inactivos.'
+            });
+        });
+    }
+
+    if (deleteInactivePluginsButton) {
+        deleteInactivePluginsButton.addEventListener('click', () => {
+            handleCleanupAction(deleteInactivePluginsButton, deleteInactivePluginsStatus, {
+                action: 'wp_fast_setup_delete_inactive_plugins',
+                confirmMessage: '¿Seguro que quieres eliminar todos los plugins no activos? Esta acción no se puede deshacer.',
+                runningText: '⏳ Limpiando...',
+                successDefault: 'Plugins inactivos eliminados correctamente.',
+                errorDefault: 'No se pudieron eliminar los plugins inactivos.'
             });
         });
     }

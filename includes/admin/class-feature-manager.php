@@ -15,6 +15,8 @@ class FeatureManager
         add_action('wp_ajax_wp_fast_setup_test_google_drive', array($this, 'ajax_test_google_drive'));
         add_action('wp_ajax_wp_fast_setup_add_favorite', array($this, 'ajax_add_favorite'));
         add_action('wp_ajax_wp_fast_setup_toggle_favorite', array($this, 'ajax_toggle_favorite'));
+        add_action('wp_ajax_wp_fast_setup_delete_inactive_plugins', array($this, 'ajax_delete_inactive_plugins'));
+        add_action('wp_ajax_wp_fast_setup_delete_inactive_themes', array($this, 'ajax_delete_inactive_themes'));
     }
 
     /**
@@ -593,6 +595,223 @@ class FeatureManager
         } catch (Exception $e) {
             wp_send_json_error('Error al cambiar favorito: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * AJAX handler for deleting inactive plugins
+     */
+    public function ajax_delete_inactive_plugins()
+    {
+        $nonce_valid = false;
+        if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], 'wp_fast_setup_delete_inactive_plugins')) {
+            $nonce_valid = true;
+        } elseif (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_action')) {
+            $nonce_valid = true;
+        }
+
+        if (!$nonce_valid) {
+            wp_send_json_error(array(
+                'message' => 'Nonce inválido para eliminar plugins inactivos.'
+            ));
+        }
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array(
+                'message' => 'Debes iniciar sesión para realizar esta acción.'
+            ));
+        }
+
+        if (!current_user_can('delete_plugins')) {
+            wp_send_json_error(array(
+                'message' => 'No tienes permisos para eliminar plugins.'
+            ));
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+
+        $all_plugins = get_plugins();
+        if (empty($all_plugins)) {
+            wp_send_json_success(array(
+                'message' => 'No hay plugins instalados para revisar.',
+                'deleted' => array(),
+                'deleted_count' => 0,
+                'errors' => array(),
+                'errors_count' => 0
+            ));
+        }
+
+        $network_active = array();
+        if (is_multisite()) {
+            $network_active = (array) get_site_option('active_sitewide_plugins', array());
+        }
+
+        $deleted = array();
+        $errors = array();
+
+        foreach ($all_plugins as $plugin_file => $plugin_data) {
+            if (is_plugin_active($plugin_file)) {
+                continue;
+            }
+
+            if (!empty($network_active) && isset($network_active[$plugin_file])) {
+                continue;
+            }
+
+            $plugin_name = !empty($plugin_data['Name']) ? wp_strip_all_tags($plugin_data['Name']) : $plugin_file;
+
+            $result = delete_plugins(array($plugin_file));
+            if (is_wp_error($result)) {
+                $errors[$plugin_name] = $result->get_error_message();
+                continue;
+            }
+
+            $deleted[] = $plugin_name;
+        }
+
+        wp_clean_plugins_cache();
+
+        if (empty($deleted) && empty($errors)) {
+            wp_send_json_success(array(
+                'message' => 'No hay plugins inactivos para eliminar.',
+                'deleted' => array(),
+                'deleted_count' => 0,
+                'errors' => array(),
+                'errors_count' => 0
+            ));
+        }
+
+        if (empty($deleted) && !empty($errors)) {
+            wp_send_json_error(array(
+                'message' => 'No se pudieron eliminar los plugins inactivos.',
+                'errors' => $errors,
+                'errors_count' => count($errors)
+            ));
+        }
+
+        $response = array(
+            'message' => sprintf('Se eliminaron %d plugin(s) inactivos.', count($deleted)),
+            'deleted' => $deleted,
+            'deleted_count' => count($deleted)
+        );
+
+        if (!empty($errors)) {
+            $response['errors'] = $errors;
+            $response['errors_count'] = count($errors);
+            $response['message'] .= sprintf(' %d plugin(s) no se pudieron eliminar.', count($errors));
+        } else {
+            $response['errors'] = array();
+            $response['errors_count'] = 0;
+        }
+
+        wp_send_json_success($response);
+    }
+
+    /**
+     * AJAX handler for deleting inactive themes
+     */
+    public function ajax_delete_inactive_themes()
+    {
+        $nonce_valid = false;
+        if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], 'wp_fast_setup_delete_inactive_themes')) {
+            $nonce_valid = true;
+        } elseif (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_action')) {
+            $nonce_valid = true;
+        }
+
+        if (!$nonce_valid) {
+            wp_send_json_error(array(
+                'message' => 'Nonce inválido para eliminar temas inactivos.'
+            ));
+        }
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array(
+                'message' => 'Debes iniciar sesión para realizar esta acción.'
+            ));
+        }
+
+        if (!current_user_can('delete_themes')) {
+            wp_send_json_error(array(
+                'message' => 'No tienes permisos para eliminar temas.'
+            ));
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/theme.php';
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+
+        $current_theme = wp_get_theme();
+        $protected_slugs = array_filter(array(
+            $current_theme ? $current_theme->get_stylesheet() : '',
+            $current_theme ? $current_theme->get_template() : ''
+        ));
+
+        if ($current_theme && $current_theme->parent()) {
+            $protected_slugs[] = $current_theme->parent()->get_stylesheet();
+            $protected_slugs[] = $current_theme->parent()->get_template();
+        }
+
+        $protected_slugs = array_filter(array_unique($protected_slugs));
+
+        $all_themes = wp_get_themes();
+        $deleted = array();
+        $errors = array();
+
+        foreach ($all_themes as $slug => $theme) {
+            if (in_array($slug, $protected_slugs, true)) {
+                continue;
+            }
+
+            $theme_name = wp_strip_all_tags($theme->get('Name'));
+            if (empty($theme_name)) {
+                $theme_name = $slug;
+            }
+
+            $result = delete_theme($slug);
+            if (is_wp_error($result)) {
+                $errors[$theme_name] = $result->get_error_message();
+                continue;
+            }
+
+            $deleted[] = $theme_name;
+        }
+
+        wp_clean_themes_cache();
+
+        if (empty($deleted) && empty($errors)) {
+            wp_send_json_success(array(
+                'message' => 'No hay temas inactivos para eliminar.',
+                'deleted' => array(),
+                'deleted_count' => 0,
+                'errors' => array(),
+                'errors_count' => 0
+            ));
+        }
+
+        if (empty($deleted) && !empty($errors)) {
+            wp_send_json_error(array(
+                'message' => 'No se pudieron eliminar los temas inactivos.',
+                'errors' => $errors,
+                'errors_count' => count($errors)
+            ));
+        }
+
+        $response = array(
+            'message' => sprintf('Se eliminaron %d tema(s) inactivos.', count($deleted)),
+            'deleted' => $deleted,
+            'deleted_count' => count($deleted)
+        );
+
+        if (!empty($errors)) {
+            $response['errors'] = $errors;
+            $response['errors_count'] = count($errors);
+            $response['message'] .= sprintf(' %d tema(s) no se pudieron eliminar.', count($errors));
+        } else {
+            $response['errors'] = array();
+            $response['errors_count'] = 0;
+        }
+
+        wp_send_json_success($response);
     }
 
     /**

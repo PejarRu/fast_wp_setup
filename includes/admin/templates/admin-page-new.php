@@ -616,6 +616,24 @@
         color: var(--wpfs-text-light);
     }
 
+    .wpf-maintenance-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .wpf-maintenance-action {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .wpf-maintenance-action .wpf-footer-status {
+        margin-left: 0;
+    }
+
     .wpf-feature-note {
         margin-top: 8px;
         font-size: 12px;
@@ -872,6 +890,13 @@
                         <button type="button" class="wpf-btn wpf-btn-secondary" id="sort-desc">Ordenar Z-A</button>
                     </div>
                 </div>
+
+                <?php if (!empty($drive_error)) : ?>
+                    <div class="wpf-notice wpf-notice-warning">
+                        <span class="wpf-notice-icon">⚠️</span>
+                        <span><?php echo esc_html($drive_error); ?></span>
+                    </div>
+                <?php endif; ?>
 
                 <?php
                 $json_file = WP_FAST_SETUP_PLUGIN_DIR . 'includes/plugins-list.json';
@@ -1321,6 +1346,21 @@
                         🎨 Crear Footer
                     </button>
                 </form>
+            </div>
+
+            <div class="wpf-maintenance-actions">
+                <div class="wpf-maintenance-action">
+                    <button type="button" class="wpf-btn wpf-btn-secondary" id="wpfs-delete-inactive-themes" data-nonce="<?php echo esc_attr(wp_create_nonce('wp_fast_setup_delete_inactive_themes')); ?>" title="Eliminar todos los temas instalados que no estén activos actualmente.">
+                        🧹 Borrar temas no activos
+                    </button>
+                    <span id="wpfs-delete-inactive-themes-status" class="wpf-footer-status"></span>
+                </div>
+                <div class="wpf-maintenance-action">
+                    <button type="button" class="wpf-btn wpf-btn-secondary" id="wpfs-delete-inactive-plugins" data-nonce="<?php echo esc_attr(wp_create_nonce('wp_fast_setup_delete_inactive_plugins')); ?>" title="Eliminar todos los plugins instalados que no estén activos actualmente.">
+                        🧽 Borrar plugins no activos
+                    </button>
+                    <span id="wpfs-delete-inactive-plugins-status" class="wpf-footer-status"></span>
+                </div>
             </div>
 
             <div class="wpf-card" style="margin-top: 30px; border-left: 4px solid var(--wpfs-warning); background: #fefefe;">

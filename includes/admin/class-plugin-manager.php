@@ -445,9 +445,16 @@ class PluginManager
 
         if (isset($data['files'])) {
             foreach ($data['files'] as $file) {
-                if (isset($file['name']) && pathinfo($file['name'], PATHINFO_EXTENSION) === 'zip') {
-                    $zip_files[] = $file['name'];
+                if (!isset($file['name']) || pathinfo($file['name'], PATHINFO_EXTENSION) !== 'zip') {
+                    continue;
                 }
+
+                $zip_files[] = array(
+                    'id' => isset($file['id']) ? $file['id'] : '',
+                    'name' => $file['name'],
+                    'mimeType' => isset($file['mimeType']) ? $file['mimeType'] : '',
+                    'modifiedTime' => isset($file['modifiedTime']) ? $file['modifiedTime'] : '',
+                );
             }
         }
 

@@ -200,6 +200,11 @@ class Admin_Pages
             return;
         }
 
+        // Load media library scripts for logo/favico selectors
+        if (function_exists('wp_enqueue_media')) {
+            wp_enqueue_media();
+        }
+
         // Enqueue CSS
         wp_enqueue_style(
             'wp-fast-setup-admin',
