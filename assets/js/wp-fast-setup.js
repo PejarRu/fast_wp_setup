@@ -53,8 +53,8 @@ const initWPFastSetup = () => {
             let presetText = '';
 
             switch (preset) {
-                case 'basico':
-                    presetText = "Inicio\nNosotros\nServicios\nContacto";
+                case 'base':
+                    presetText = "Inicio\nServicios\nContacto";
                     break;
                 case 'completo':
                     presetText = "Inicio\nNosotros\nServicios\nPortfolio\nBlog\nContacto";

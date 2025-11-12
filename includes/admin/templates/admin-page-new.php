@@ -1260,18 +1260,18 @@
                 <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
 
                 <div class="wpf-form-group">
-                    <label for="menus_input">Menús a Crear</label>
-                    <textarea name="menus_input" id="menus_input" placeholder="Ingrese un menú por línea."></textarea>
-                    <small style="color: var(--wpfs-text-light);">Ingrese un menú por línea. Cada línea será un menú separado.</small>
-                </div>
-
-                <div class="wpf-form-group">
                     <label for="menu_presets_select">Presets de Menús</label>
                     <select id="menu_presets_select">
                         <option value="">-- Seleccionar preset --</option>
                         <option value="legal_footer_main">Legal + Footer + Principal</option>
                     </select>
                     <small style="color: var(--wpfs-text-light);">Elige un preset para autocompletar la lista de menús sugeridos.</small>
+                </div>
+
+                <div class="wpf-form-group">
+                    <label for="menus_input">Menús a Crear</label>
+                    <textarea name="menus_input" id="menus_input" placeholder="Ingrese un menú por línea."></textarea>
+                    <small style="color: var(--wpfs-text-light);">Ingrese un menú por línea. Cada línea será un menú separado.</small>
                 </div>
 
                 <div class="wpf-button-group">
