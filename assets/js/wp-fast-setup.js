@@ -511,6 +511,139 @@ const initWPFastSetup = () => {
 
     // AJAX form submission for features
     const featuresForm = document.querySelector('#features-form');
+    const createAdminCheckbox = document.getElementById('feature_create_admin');
+    const adminUsernameInput = document.getElementById('feature_create_admin_username');
+    const adminEmailInput = document.getElementById('feature_create_admin_email');
+    const adminSummary = document.getElementById('feature_create_admin_summary');
+
+    const elementorBrandingForm = document.getElementById('elementor-branding-form');
+    const elementorLogoInput = document.getElementById('elementor_logo_id');
+    const elementorFaviconInput = document.getElementById('elementor_favicon_id');
+    const elementorLogoPreview = document.getElementById('elementor-logo-preview');
+    const elementorFaviconPreview = document.getElementById('elementor-favicon-preview');
+    const elementorLogoContainer = document.getElementById('elementor-logo-preview-container');
+    const elementorFaviconContainer = document.getElementById('elementor-favicon-preview-container');
+    const elementorLogoRemoveBtn = document.getElementById('remove-elementor-logo-btn');
+    const elementorFaviconRemoveBtn = document.getElementById('remove-elementor-favicon-btn');
+    const importKitLogosButton = document.getElementById('wpfs-import-kit-logos');
+    const importKitLogosStatus = document.getElementById('wpfs-import-kit-logos-status');
+
+    const updateAdminSummary = () => {
+        if (!adminSummary) {
+            return;
+        }
+
+        if (!createAdminCheckbox || !createAdminCheckbox.checked) {
+            adminSummary.textContent = '';
+            adminSummary.style.display = 'none';
+            return;
+        }
+
+        const username = adminUsernameInput ? adminUsernameInput.value.trim() : '';
+        const email = adminEmailInput ? adminEmailInput.value.trim() : '';
+
+        if (!username && !email) {
+            adminSummary.textContent = 'Se solicitarán credenciales personalizadas antes de crear el administrador auxiliar.';
+            adminSummary.style.display = 'block';
+            adminSummary.style.color = '#1d2327';
+            return;
+        }
+
+        adminSummary.textContent = `Se creará un administrador auxiliar con usuario "${username}" y correo "${email}".`;
+        adminSummary.style.display = 'block';
+        adminSummary.style.color = '#1d2327';
+    };
+
+    const collectAdminCredentials = (forcePrompt = false) => {
+        if (!createAdminCheckbox || !createAdminCheckbox.checked) {
+            updateAdminSummary();
+            return null;
+        }
+
+        const defaultUsername = adminUsernameInput ? adminUsernameInput.value.trim() : '';
+        const defaultEmail = adminEmailInput ? adminEmailInput.value.trim() : '';
+
+        if (!forcePrompt && defaultUsername && defaultEmail) {
+            updateAdminSummary();
+            return {
+                username: defaultUsername,
+                email: defaultEmail,
+                reused: true
+            };
+        }
+
+        const requestedUsername = window.prompt('Introduce el nombre de usuario para el administrador auxiliar:', defaultUsername || 'admin_aux');
+        if (requestedUsername === null) {
+            updateAdminSummary();
+            return false;
+        }
+
+        const finalUsername = requestedUsername.trim();
+        if (!finalUsername) {
+            alert('Debes indicar un nombre de usuario válido.');
+            updateAdminSummary();
+            return false;
+        }
+
+        const requestedEmail = window.prompt('Introduce el correo electrónico para el administrador auxiliar:', defaultEmail || '');
+        if (requestedEmail === null) {
+            updateAdminSummary();
+            return false;
+        }
+
+        const finalEmail = requestedEmail.trim();
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!finalEmail || !emailPattern.test(finalEmail)) {
+            alert('Introduce un correo electrónico válido.');
+            updateAdminSummary();
+            return false;
+        }
+
+        if (adminUsernameInput) {
+            adminUsernameInput.value = finalUsername;
+        }
+        if (adminEmailInput) {
+            adminEmailInput.value = finalEmail;
+        }
+
+        updateAdminSummary();
+
+        return {
+            username: finalUsername,
+            email: finalEmail,
+            reused: false
+        };
+    };
+
+    if (createAdminCheckbox) {
+        createAdminCheckbox.addEventListener('change', () => {
+            if (!createAdminCheckbox.checked) {
+                if (adminUsernameInput) {
+                    adminUsernameInput.value = '';
+                }
+                if (adminEmailInput) {
+                    adminEmailInput.value = '';
+                }
+                updateAdminSummary();
+                return;
+            }
+
+            const credentials = collectAdminCredentials(true);
+            if (credentials === false) {
+                createAdminCheckbox.checked = false;
+                if (adminUsernameInput) {
+                    adminUsernameInput.value = '';
+                }
+                if (adminEmailInput) {
+                    adminEmailInput.value = '';
+                }
+            }
+            updateAdminSummary();
+        });
+    }
+
+    updateAdminSummary();
+
     if (featuresForm && !featuresForm.dataset.wpfsAjaxBound) {
         featuresForm.dataset.wpfsAjaxBound = '1';
         featuresForm.addEventListener('submit', function(e) {
@@ -529,6 +662,16 @@ const initWPFastSetup = () => {
 
             const submitButton = e.submitter || featuresForm.querySelector('button[type="submit"]');
             const originalText = submitButton ? submitButton.innerHTML : '';
+
+            const adminCredentials = collectAdminCredentials(false);
+            if (adminCredentials === false) {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText || '⚡ Aplicar Cambios';
+                }
+                return;
+            }
+
             if (submitButton) {
                 submitButton.disabled = true;
                 submitButton.innerHTML = '⏳ Aplicando...';
@@ -551,6 +694,11 @@ const initWPFastSetup = () => {
                     formData.append('features[]', featureValue);
                 }
             });
+
+            if (createAdminCheckbox && createAdminCheckbox.checked && adminCredentials && adminCredentials.username && adminCredentials.email) {
+                formData.append('feature_create_admin_username', adminCredentials.username);
+                formData.append('feature_create_admin_email', adminCredentials.email);
+            }
 
             fetch(ajaxUrl, {
                 method: 'POST',
@@ -588,6 +736,167 @@ const initWPFastSetup = () => {
                     submitButton.disabled = false;
                     submitButton.innerHTML = originalText || '⚡ Aplicar Cambios';
                 }
+            });
+        });
+    }
+
+    if (elementorBrandingForm && !elementorBrandingForm.dataset.wpfsAjaxBound) {
+        elementorBrandingForm.dataset.wpfsAjaxBound = '1';
+        elementorBrandingForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (!ajaxUrl) {
+                alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                return;
+            }
+
+            const submitButton = e.submitter || elementorBrandingForm.querySelector('button[type="submit"]');
+            const originalText = submitButton ? submitButton.textContent : '';
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = '⏳ Guardando...';
+            }
+
+            const formData = new FormData(elementorBrandingForm);
+            formData.append('action', 'wp_fast_setup_save_elementor_branding');
+            if (defaultNonce) {
+                formData.append('nonce', defaultNonce);
+            }
+
+            fetch(ajaxUrl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const payload = data.data || {};
+                    alert('✅ Identidad de Elementor actualizada correctamente.');
+
+                    if (typeof payload.logo_id !== 'undefined' && elementorLogoInput) {
+                        elementorLogoInput.value = payload.logo_id || '';
+                    }
+
+                    if (typeof payload.logo_url !== 'undefined' && elementorLogoPreview) {
+                        if (payload.logo_url) {
+                            elementorLogoPreview.src = payload.logo_url;
+                            if (elementorLogoContainer) {
+                                elementorLogoContainer.style.display = 'block';
+                            }
+                            if (elementorLogoRemoveBtn) {
+                                elementorLogoRemoveBtn.style.display = 'inline-block';
+                            }
+                        } else {
+                            elementorLogoPreview.src = '';
+                            if (elementorLogoContainer) {
+                                elementorLogoContainer.style.display = 'none';
+                            }
+                            if (elementorLogoRemoveBtn) {
+                                elementorLogoRemoveBtn.style.display = 'none';
+                            }
+                        }
+                    }
+
+                    if (typeof payload.favicon_id !== 'undefined' && elementorFaviconInput) {
+                        elementorFaviconInput.value = payload.favicon_id || '';
+                    }
+
+                    if (typeof payload.favicon_url !== 'undefined' && elementorFaviconPreview) {
+                        if (payload.favicon_url) {
+                            elementorFaviconPreview.src = payload.favicon_url;
+                            elementorFaviconPreview.style.display = 'block';
+                            if (elementorFaviconContainer) {
+                                elementorFaviconContainer.style.display = 'block';
+                            }
+                            if (elementorFaviconRemoveBtn) {
+                                elementorFaviconRemoveBtn.style.display = 'inline-block';
+                            }
+                        } else {
+                            elementorFaviconPreview.src = '';
+                            if (elementorFaviconContainer) {
+                                elementorFaviconContainer.style.display = 'none';
+                            }
+                            if (elementorFaviconRemoveBtn) {
+                                elementorFaviconRemoveBtn.style.display = 'none';
+                            }
+                        }
+                    }
+                } else {
+                    alert('❌ Error: ' + (data.message || 'No se pudo actualizar Elementor.'));
+                }
+            })
+            .catch(error => {
+                console.error('WP Fast Setup: Elementor branding error:', error);
+                alert('❌ Error de conexión al guardar identidad de Elementor');
+            })
+            .finally(() => {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalText || submitButton.textContent;
+                }
+            });
+        });
+    }
+
+    if (importKitLogosButton) {
+        importKitLogosButton.addEventListener('click', () => {
+            if (!ajaxUrl) {
+                alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                return;
+            }
+
+            const originalText = importKitLogosButton.textContent;
+            importKitLogosButton.disabled = true;
+            importKitLogosButton.textContent = '⏳ Importando...';
+
+            if (importKitLogosStatus) {
+                importKitLogosStatus.style.color = '#646970';
+                importKitLogosStatus.textContent = 'Importando logos del Kit Digital...';
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'wp_fast_setup_import_media');
+
+            const mediaNonce = importKitLogosButton.dataset.nonce || '';
+            if (mediaNonce) {
+                formData.append('_wpnonce', mediaNonce);
+            }
+            if (defaultNonce) {
+                formData.append('nonce', defaultNonce);
+            }
+
+            fetch(ajaxUrl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (importKitLogosStatus) {
+                        importKitLogosStatus.style.color = '#008a20';
+                        const imported = data.data && typeof data.data.imported_count !== 'undefined' ? data.data.imported_count : '';
+                        importKitLogosStatus.textContent = imported ? `Se importaron ${imported} elementos del kit.` : 'Logos importados correctamente.';
+                    }
+                    alert('✅ Imágenes del Kit Digital importadas a la biblioteca.');
+                } else {
+                    if (importKitLogosStatus) {
+                        importKitLogosStatus.style.color = '#b32d2e';
+                        importKitLogosStatus.textContent = data.message || 'No se pudieron importar los logos.';
+                    }
+                    alert('❌ Error: ' + (data.message || 'No se pudieron importar los logos.'));
+                }
+            })
+            .catch(error => {
+                console.error('WP Fast Setup: Import Kit Logos error:', error);
+                if (importKitLogosStatus) {
+                    importKitLogosStatus.style.color = '#b32d2e';
+                    importKitLogosStatus.textContent = error.message;
+                }
+                alert('❌ Error de conexión al importar logos del Kit Digital');
+            })
+            .finally(() => {
+                importKitLogosButton.disabled = false;
+                importKitLogosButton.textContent = originalText;
             });
         });
     }
@@ -642,6 +951,8 @@ const initWPFastSetup = () => {
     // Initialize media selectors
     initMediaSelector('select-logo-btn', 'site_logo_id', 'logo-preview', 'logo-preview-container', 'remove-logo-btn');
     initMediaSelector('select-favicon-btn', 'site_favicon_id', 'favicon-preview', 'favicon-preview-container', 'remove-favicon-btn');
+    initMediaSelector('select-elementor-logo-btn', 'elementor_logo_id', 'elementor-logo-preview', 'elementor-logo-preview-container', 'remove-elementor-logo-btn');
+    initMediaSelector('select-elementor-favicon-btn', 'elementor_favicon_id', 'elementor-favicon-preview', 'elementor-favicon-preview-container', 'remove-elementor-favicon-btn');
 
     // Initialize plugin controls when plugins tab is activated
     function initializePluginControls() {

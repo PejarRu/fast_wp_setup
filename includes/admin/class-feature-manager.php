@@ -54,11 +54,21 @@ class FeatureManager
                 wp_send_json_error('No se seleccionó ninguna característica.');
             }
 
+            $feature_inputs = array(
+                'create_admin' => array(
+                    'username' => isset($_POST['feature_create_admin_username']) ? sanitize_user(wp_unslash($_POST['feature_create_admin_username']), true) : '',
+                    'email' => isset($_POST['feature_create_admin_email']) ? sanitize_email(wp_unslash($_POST['feature_create_admin_email'])) : '',
+                    'original_username' => isset($_POST['feature_create_admin_username']) ? trim(wp_unslash($_POST['feature_create_admin_username'])) : '',
+                    'original_email' => isset($_POST['feature_create_admin_email']) ? trim(wp_unslash($_POST['feature_create_admin_email'])) : '',
+                ),
+            );
+
             $results = array();
 
             foreach ($features as $feature) {
                 $sanitized_feature = sanitize_key($feature);
-                $result = $this->activate_feature($sanitized_feature);
+                $args = isset($feature_inputs[$sanitized_feature]) ? $feature_inputs[$sanitized_feature] : array();
+                $result = $this->activate_feature($sanitized_feature, $args);
                 $results[] = $result;
             }
 
@@ -74,7 +84,7 @@ class FeatureManager
     /**
      * Activate a specific feature
      */
-    private function activate_feature($feature)
+    private function activate_feature($feature, $args = array())
     {
         switch ($feature) {
             case 'disable_comments':
@@ -87,7 +97,7 @@ class FeatureManager
                 return $this->activate_hello_elementor();
 
             case 'create_admin':
-                return $this->create_admin_user();
+                return $this->create_admin_user($args);
 
             default:
                 return array(
@@ -263,22 +273,57 @@ class FeatureManager
     /**
      * Create admin user
      */
-    private function create_admin_user()
+    private function create_admin_user($args = array())
     {
         try {
-            $username = 'admin';
-            $email = 'admin@' . parse_url(get_site_url(), PHP_URL_HOST);
-            $password = wp_generate_password(12, true);
+            $requested_username = isset($args['original_username']) ? trim($args['original_username']) : ''; // For reporting back
+            $requested_email = isset($args['original_email']) ? trim($args['original_email']) : '';
 
-            // Check if user already exists
+            $username = isset($args['username']) ? sanitize_user($args['username'], true) : '';
+            if (!$username && $requested_username) {
+                $username = sanitize_user($requested_username, true);
+            }
+
+            $email = isset($args['email']) ? sanitize_email($args['email']) : '';
+            if (!$email && $requested_email) {
+                $email = sanitize_email($requested_email);
+            }
+
+            if (!$username) {
+                return array(
+                    'feature' => 'create_admin',
+                    'success' => false,
+                    'error' => 'Debes indicar un nombre de usuario válido para el administrador auxiliar.'
+                );
+            }
+
+            if (!$email || !is_email($email)) {
+                return array(
+                    'feature' => 'create_admin',
+                    'success' => false,
+                    'error' => 'Debes indicar un correo electrónico válido para el administrador auxiliar.'
+                );
+            }
+
             if (username_exists($username)) {
                 return array(
                     'feature' => 'create_admin',
                     'success' => false,
-                    'error' => 'El usuario admin ya existe'
+                    'error' => sprintf('El usuario "%s" ya existe en este sitio.', $username)
                 );
             }
 
+            if (email_exists($email)) {
+                return array(
+                    'feature' => 'create_admin',
+                    'success' => false,
+                    'error' => sprintf('El correo "%s" ya está asociado a otro usuario.', $email)
+                );
+            }
+
+            $password = wp_generate_password(16, true);
+
+            // Check if user already exists
             $user_id = wp_create_user($username, $password, $email);
             if (is_wp_error($user_id)) {
                 return array(
@@ -292,14 +337,43 @@ class FeatureManager
             $user = new WP_User($user_id);
             $user->set_role('administrator');
 
+            $site_name = wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES);
+            $login_url = wp_login_url();
+            $subject = sprintf('[%s] Credenciales de acceso', $site_name);
+            $message_lines = array(
+                'Hola,',
+                '',
+                sprintf('Se ha creado un usuario administrador auxiliar en %s.', $site_name),
+                '',
+                sprintf('Usuario: %s', $username),
+                sprintf('Contraseña: %s', $password),
+                sprintf('Acceso: %s', $login_url),
+                '',
+                'Por seguridad, inicia sesión y cambia la contraseña cuanto antes.',
+                '',
+                'Este correo ha sido generado automáticamente por WP Fast Setup.'
+            );
+            $message = implode("\n", $message_lines);
+
+            $email_sent = wp_mail($email, $subject, $message);
+
+            $success_message = 'Usuario administrador auxiliar creado correctamente.';
+            if (!$email_sent) {
+                $success_message .= ' No se pudo enviar el correo con las credenciales.';
+            }
+
             return array(
                 'feature' => 'create_admin',
                 'success' => true,
-                'message' => 'Usuario admin creado',
+                'message' => $success_message,
                 'credentials' => array(
                     'username' => $username,
                     'password' => $password,
-                    'email' => $email
+                    'email' => $email,
+                    'login_url' => $login_url,
+                    'email_sent' => $email_sent,
+                    'requested_username' => $requested_username ?: $username,
+                    'requested_email' => $requested_email ?: $email
                 )
             );
         } catch (Exception $e) {

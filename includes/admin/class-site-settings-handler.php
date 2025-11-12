@@ -11,7 +11,8 @@ class SiteSettingsHandler
     {
         // AJAX actions for site settings
         add_action('wp_ajax_wp_fast_setup_save_site_settings', array($this, 'ajax_save_site_settings'));
-        error_log('WP Fast Setup: SiteSettingsHandler constructor called - AJAX action registered');
+        add_action('wp_ajax_wp_fast_setup_save_elementor_branding', array($this, 'ajax_save_elementor_branding'));
+        error_log('WP Fast Setup: SiteSettingsHandler constructor called - AJAX actions registered');
     }
 
     /**
@@ -182,6 +183,114 @@ class SiteSettingsHandler
             ));
         } catch (Exception $e) {
             wp_send_json_error('Error al guardar configuración: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * AJAX handler for syncing Elementor site identity (logo & favicon)
+     */
+    public function ajax_save_elementor_branding()
+    {
+        $nonce_valid = false;
+        if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], 'wp_fast_setup_action')) {
+            $nonce_valid = true;
+        } elseif (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_action')) {
+            $nonce_valid = true;
+        } elseif (isset($_POST['wp_fast_setup_nonce_elementor_branding']) && wp_verify_nonce($_POST['wp_fast_setup_nonce_elementor_branding'], 'wp_fast_setup_action')) {
+            $nonce_valid = true;
+        }
+
+        if (!$nonce_valid) {
+            wp_send_json_error('Invalid nonce');
+        }
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error('User not logged in');
+            return;
+        }
+
+        if (!did_action('elementor/loaded') || !class_exists('\Elementor\\Plugin')) {
+            wp_send_json_error('Elementor no está activo en este sitio.');
+            return;
+        }
+
+        if (!wp_doing_ajax() && !current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+            return;
+        }
+
+        $logo_id = isset($_POST['elementor_logo_id']) ? absint($_POST['elementor_logo_id']) : 0;
+        $favicon_id = isset($_POST['elementor_favicon_id']) ? absint($_POST['elementor_favicon_id']) : 0;
+
+        try {
+            $kits_manager = \Elementor\Plugin::$instance->kits_manager ?? null;
+            if (!$kits_manager || !method_exists($kits_manager, 'get_active_kit')) {
+                wp_send_json_error('No se pudo acceder al kit activo de Elementor.');
+                return;
+            }
+
+            $kit = $kits_manager->get_active_kit();
+            if (!$kit && method_exists($kits_manager, 'get_active_kit_for_frontend')) {
+                $kit = $kits_manager->get_active_kit_for_frontend();
+            }
+
+            if (!$kit) {
+                wp_send_json_error('No se encontró un kit activo de Elementor para actualizar.');
+                return;
+            }
+
+            if (!method_exists($kit, 'update_settings') || !method_exists($kit, 'get_settings')) {
+                wp_send_json_error('El kit de Elementor no permite actualizar ajustes.');
+                return;
+            }
+
+            $settings_to_update = array();
+            $logo_url = '';
+            $favicon_url = '';
+
+            if ($logo_id > 0) {
+                $logo_url = wp_get_attachment_url($logo_id);
+                if (!$logo_url) {
+                    wp_send_json_error('No se pudo encontrar el archivo del logo seleccionado.');
+                    return;
+                }
+
+                $settings_to_update['site_logo'] = array(
+                    'id' => $logo_id,
+                    'url' => $logo_url,
+                );
+            } else {
+                $settings_to_update['site_logo'] = array();
+            }
+
+            if ($favicon_id > 0) {
+                $favicon_url = wp_get_attachment_url($favicon_id);
+                if (!$favicon_url) {
+                    wp_send_json_error('No se pudo encontrar el archivo de favicon seleccionado.');
+                    return;
+                }
+
+                $settings_to_update['site_favicon'] = array(
+                    'id' => $favicon_id,
+                    'url' => $favicon_url,
+                );
+            } else {
+                $settings_to_update['site_favicon'] = array();
+            }
+
+            if (!empty($settings_to_update)) {
+                $kit->update_settings($settings_to_update);
+            }
+
+            wp_send_json_success(array(
+                'message' => 'Identidad de Elementor actualizada correctamente.',
+                'logo_id' => $logo_id,
+                'favicon_id' => $favicon_id,
+                'logo_url' => $logo_url,
+                'favicon_url' => $favicon_url,
+            ));
+        } catch (Exception $e) {
+            wp_send_json_error('Error al actualizar Elementor: ' . $e->getMessage());
         }
     }
 

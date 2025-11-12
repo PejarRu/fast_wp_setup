@@ -460,10 +460,27 @@
         background: var(--wpfs-light);
         border-radius: 6px;
         transition: all 0.3s ease;
+        border: 1px solid transparent;
     }
 
     .wpf-plugin-item:hover {
         background: #e9ecef;
+    }
+
+    .wpf-plugin-item.wpf-plugin-item--installed {
+        background: #eaf7ed;
+        border-color: rgba(0, 163, 42, 0.4);
+        box-shadow: inset 0 0 0 1px rgba(0, 163, 42, 0.15);
+        position: relative;
+    }
+
+    .wpf-plugin-item.wpf-plugin-item--installed:hover {
+        background: #def0e2;
+    }
+
+    .wpf-plugin-item.wpf-plugin-item--active {
+        border-color: rgba(34, 113, 177, 0.45);
+        box-shadow: inset 0 0 0 1px rgba(34, 113, 177, 0.2);
     }
 
     .wpf-plugin-item input[type="checkbox"] {
@@ -521,8 +538,88 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        background: #fef3c7;
+        color: #92400e;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 13px;
         font-weight: 600;
-        color: #d97706;
+    }
+
+    .wpf-installed-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(0, 163, 42, 0.12);
+        color: #046c1c;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        margin-left: 12px;
+        white-space: nowrap;
+    }
+
+    .wpf-installed-badge::before {
+        content: '✅';
+    }
+
+    .wpf-footer {
+        margin-top: 40px;
+        background: var(--wpfs-white);
+        border-radius: 12px;
+        box-shadow: var(--wpfs-shadow);
+        border: 1px solid var(--wpfs-border);
+        padding: 24px 30px;
+    }
+
+    .wpf-footer-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--wpfs-text);
+        margin: 0 0 12px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .wpf-footer-title span {
+        font-size: 22px;
+    }
+
+    .wpf-footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .wpf-footer-links a {
+        color: var(--wpfs-primary);
+        font-weight: 600;
+        text-decoration: underline;
+    }
+
+    .wpf-footer-links a:hover {
+        color: var(--wpfs-secondary);
+    }
+
+    .wpf-footer-actions {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .wpf-footer-status {
+        font-size: 13px;
+        color: var(--wpfs-text-light);
+    }
+
+    .wpf-feature-note {
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--wpfs-text-light);
     }
 
     /* Drive Settings */
@@ -576,6 +673,29 @@
 
     .wpf-template-options input[type="radio"] {
         margin: 0;
+    }
+
+    .wpf-media-preview {
+        margin-top: 12px;
+        display: none;
+        background: var(--wpfs-light);
+        border: 1px dashed var(--wpfs-border);
+        padding: 12px;
+        border-radius: 8px;
+        max-width: 220px;
+    }
+
+    .wpf-media-preview img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+    }
+
+    .wpf-media-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
     }
 </style>
 
@@ -714,6 +834,10 @@
                     </div>
                 </div>
 
+                <p class="wpf-feature-note" id="feature_create_admin_summary"></p>
+                <input type="hidden" name="feature_create_admin_username" id="feature_create_admin_username" value="">
+                <input type="hidden" name="feature_create_admin_email" id="feature_create_admin_email" value="">
+
                 <div class="wpf-button-group">
                     <button type="submit" class="wpf-btn wpf-btn-success" title="Aplicar las características avanzadas seleccionadas (permalinks, tema, comentarios, usuario admin, etc.)">
                         ⚡ Aplicar Cambios
@@ -847,6 +971,35 @@
                     }
                 }
 
+                if (!function_exists('get_plugins')) {
+                    require_once ABSPATH . 'wp-admin/includes/plugin.php';
+                }
+
+                $installed_plugins = function_exists('get_plugins') ? get_plugins() : array();
+                $active_plugin_files = function_exists('get_option') ? (array) get_option('active_plugins', array()) : array();
+
+                $normalize_plugin_identifier = static function ($value) {
+                    $value = strtolower((string) $value);
+                    return preg_replace('/[^a-z0-9]/', '', $value);
+                };
+
+                $installed_lookup = array();
+                foreach ($installed_plugins as $plugin_file => $plugin_data) {
+                    $candidates = array(
+                        dirname($plugin_file),
+                        basename($plugin_file, '.php'),
+                        isset($plugin_data['TextDomain']) ? $plugin_data['TextDomain'] : '',
+                        isset($plugin_data['Name']) ? $plugin_data['Name'] : '',
+                    );
+
+                    foreach ($candidates as $candidate) {
+                        $normalized = $normalize_plugin_identifier($candidate);
+                        if ($normalized) {
+                            $installed_lookup[$normalized] = $plugin_file;
+                        }
+                    }
+                }
+
                 if (!empty($plugin_entries)) {
                     usort($plugin_entries, function ($a, $b) {
                         if (!empty($a['is_favorite']) && empty($b['is_favorite'])) {
@@ -857,6 +1010,30 @@
                         }
                         return strcasecmp($a['label'], $b['label']);
                     });
+                }
+
+                foreach ($plugin_entries as $index => $entry) {
+                    $identifier_candidates = array_filter(array(
+                        isset($entry['slug']) ? $entry['slug'] : '',
+                        isset($entry['value']) ? $entry['value'] : '',
+                        isset($entry['label']) ? $entry['label'] : '',
+                    ));
+
+                    $plugin_file_match = '';
+                    foreach ($identifier_candidates as $candidate) {
+                        $normalized_candidate = $normalize_plugin_identifier($candidate);
+                        if ($normalized_candidate && isset($installed_lookup[$normalized_candidate])) {
+                            $plugin_file_match = $installed_lookup[$normalized_candidate];
+                            break;
+                        }
+                    }
+
+                    $is_installed = !empty($plugin_file_match);
+                    $is_active = $is_installed && in_array($plugin_file_match, $active_plugin_files, true);
+
+                    $plugin_entries[$index]['installed'] = $is_installed;
+                    $plugin_entries[$index]['active'] = $is_active;
+                    $plugin_entries[$index]['plugin_file'] = $plugin_file_match;
                 }
 
                 echo '<div class="wpf-plugin-list">';
@@ -874,6 +1051,12 @@
                     if (!empty($entry['is_favorite'])) {
                         $attributes_map['data-plugin-favorite'] = '1';
                     }
+                    if (!empty($entry['installed'])) {
+                        $attributes_map['data-plugin-installed'] = '1';
+                    }
+                    if (!empty($entry['active'])) {
+                        $attributes_map['data-plugin-active'] = '1';
+                    }
 
                     foreach ($attributes_map as $attr_key => $attr_value) {
                         if ($attr_value !== '') {
@@ -881,7 +1064,15 @@
                         }
                     }
 
-                    echo '<div class="wpf-plugin-item">';
+                    $item_classes = array('wpf-plugin-item');
+                    if (!empty($entry['installed'])) {
+                        $item_classes[] = 'wpf-plugin-item--installed';
+                    }
+                    if (!empty($entry['active'])) {
+                        $item_classes[] = 'wpf-plugin-item--active';
+                    }
+
+                    echo '<div class="' . esc_attr(implode(' ', $item_classes)) . '">';
                     printf(
                         '<input type="checkbox" class="wpf-plugin-checkbox" id="%1$s" name="%2$s" value="%3$s"%4$s>',
                         esc_attr($entry['id']),
@@ -901,6 +1092,11 @@
                     } else {
                         echo '<span class="wpf-favorite-badge">⭐ Favorito</span>';
                     }
+
+                    if (!empty($entry['installed'])) {
+                        $status_label = !empty($entry['active']) ? 'Activo' : 'Instalado';
+                        echo '<span class="wpf-installed-badge">' . esc_html($status_label) . '</span>';
+                    }
                     echo '</div>';
                 }
                 echo '</div>';
@@ -919,7 +1115,58 @@
     <div id="content" class="wpf-tab-content">
         <div class="wpf-card">
             <div class="wpf-card-header">
-                <span class="wpf-card-icon">📄</span>
+                <span class="wpf-card-icon">�️</span>
+                <h2 class="wpf-card-title">Identidad visual de Elementor</h2>
+            </div>
+            <p class="wpf-card-description">Define el logo y favicon que Elementor utilizará en sus sitios y plantillas.</p>
+
+            <?php if (did_action('elementor/loaded') && class_exists('\\Elementor\\Plugin')) : ?>
+                <form id="elementor-branding-form" method="post" action="">
+                    <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce_elementor_branding'); ?>
+
+                    <div class="wpf-form-group">
+                        <label for="elementor_logo_id">Logo principal</label>
+                        <input type="hidden" name="elementor_logo_id" id="elementor_logo_id" value="<?php echo esc_attr($elementor_logo_id); ?>">
+                        <div id="elementor-logo-preview-container" class="wpf-media-preview" <?php echo $elementor_logo_url ? '' : ' style="display:none;"'; ?>>
+                            <img id="elementor-logo-preview" src="<?php echo $elementor_logo_url ? esc_url($elementor_logo_url) : ''; ?>" alt="Logo de Elementor">
+                        </div>
+                        <div class="wpf-media-buttons">
+                            <button type="button" class="wpf-btn wpf-btn-secondary" id="select-elementor-logo-btn">Seleccionar logo</button>
+                            <button type="button" class="wpf-btn wpf-btn-secondary" id="remove-elementor-logo-btn" <?php echo $elementor_logo_id ? '' : ' style="display:none;"'; ?>>Quitar logo</button>
+                        </div>
+                    </div>
+
+                    <div class="wpf-form-group">
+                        <label for="elementor_favicon_id">Favicon</label>
+                        <input type="hidden" name="elementor_favicon_id" id="elementor_favicon_id" value="<?php echo esc_attr($elementor_favicon_id); ?>">
+                        <div id="elementor-favicon-preview-container" class="wpf-media-preview" <?php echo $elementor_favicon_url ? '' : ' style="display:none;"'; ?>>
+                            <img id="elementor-favicon-preview" src="<?php echo $elementor_favicon_url ? esc_url($elementor_favicon_url) : ''; ?>" alt="Favicon de Elementor" style="max-width:64px;">
+                        </div>
+                        <div class="wpf-media-buttons">
+                            <button type="button" class="wpf-btn wpf-btn-secondary" id="select-elementor-favicon-btn">Seleccionar favicon</button>
+                            <button type="button" class="wpf-btn wpf-btn-secondary" id="remove-elementor-favicon-btn" <?php echo $elementor_favicon_id ? '' : ' style="display:none;"'; ?>>Quitar favicon</button>
+                        </div>
+                        <small class="wpf-form-help">Estos elementos se almacenan en el kit activo de Elementor. No modifican la identidad general de WordPress.</small>
+                    </div>
+
+                    <div class="wpf-button-group">
+                        <button type="submit" class="wpf-btn wpf-btn-primary">💾 Guardar identidad Elementor</button>
+                    </div>
+                </form>
+            <?php else : ?>
+                <div class="wpf-notice wpf-notice-warning">
+                    <span class="wpf-notice-icon">⚠️</span>
+                    <div>
+                        <strong>Elementor no está activo.</strong>
+                        <div>Instala y activa Elementor para gestionar su identidad visual desde esta pestaña.</div>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="wpf-card">
+            <div class="wpf-card-header">
+                <span class="wpf-card-icon">�📄</span>
                 <h2 class="wpf-card-title">Crear Páginas Personalizadas</h2>
             </div>
             <p class="wpf-card-description">Crea páginas automáticamente con diferentes plantillas y estructuras</p>
@@ -974,21 +1221,6 @@
                 <input type="hidden" name="delete_existing" id="delete_existing" value="0">
                 <input type="hidden" name="create_menu" id="create_menu" value="0">
             </form>
-        </div>
-
-        <!-- Descargas de configuración JSON -->
-        <div class="wpf-card">
-            <div class="wpf-card-header">
-                <span class="wpf-card-icon">⬇️</span>
-                <h2 class="wpf-card-title">Descargas de Configuración (JSON)</h2>
-            </div>
-            <p class="wpf-card-description">Haz clic en los enlaces para descargar los archivos JSON de configuración.</p>
-
-            <div class="wpf-form-group">
-                <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'data/admin-site-enhancements-ase-settings-2025-10-14-0818.json'); ?>" download style="color:var(--wpfs-primary); text-decoration:underline; font-weight:600; margin-right:18px;">Descargar configuración ASE (JSON)</a>
-
-                <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'data/wp-rocket-settings-fast-2025-02-07-67a5ca0c3a004.json'); ?>" download style="color:var(--wpfs-primary); text-decoration:underline; font-weight:600;">Descargar configuración WP Rocket (JSON)</a>
-            </div>
         </div>
 
         <!-- Menu Creation Section -->
@@ -1111,6 +1343,27 @@
             </div>
         </div>
     </div>
+
+    <footer class="wpf-footer">
+        <div class="wpf-footer-title">
+            <span>⬇️</span>
+            <span>Descargas de Configuración (JSON)</span>
+        </div>
+        <div class="wpf-footer-links">
+            <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'data/admin-site-enhancements-ase-settings-2025-10-14-0818.json'); ?>" download>
+                Descargar configuración ASE (JSON)
+            </a>
+            <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'data/wp-rocket-settings-fast-2025-02-07-67a5ca0c3a004.json'); ?>" download>
+                Descargar configuración WP Rocket (JSON)
+            </a>
+        </div>
+        <div class="wpf-footer-actions">
+            <button type="button" class="wpf-btn wpf-btn-secondary" id="wpfs-import-kit-logos" data-nonce="<?php echo esc_attr(wp_create_nonce('wp_fast_setup_import_media')); ?>">
+                🖼️ Añadir logos Kit Digital
+            </button>
+            <span id="wpfs-import-kit-logos-status" class="wpf-footer-status"></span>
+        </div>
+    </footer>
 </div>
 
 <?php settings_errors('wp_fast_setup_messages'); ?>

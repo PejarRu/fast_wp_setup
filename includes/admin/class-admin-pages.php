@@ -130,6 +130,57 @@ class Admin_Pages
         // Get favorites
         $favorites = $this->feature_manager->get_favorites();
 
+        $elementor_logo_id = 0;
+        $elementor_favicon_id = 0;
+        $elementor_logo_url = '';
+        $elementor_favicon_url = '';
+
+        if (did_action('elementor/loaded') && class_exists('\Elementor\\Plugin')) {
+            try {
+                $kits_manager = \Elementor\Plugin::$instance->kits_manager ?? null;
+                if ($kits_manager && method_exists($kits_manager, 'get_active_kit')) {
+                    $kit = $kits_manager->get_active_kit();
+                    if (!$kit && method_exists($kits_manager, 'get_active_kit_for_frontend')) {
+                        $kit = $kits_manager->get_active_kit_for_frontend();
+                    }
+
+                    if ($kit && method_exists($kit, 'get_settings')) {
+                        $kit_settings = $kit->get_settings();
+
+                        if (!empty($kit_settings['site_logo'])) {
+                            $logo_setting = $kit_settings['site_logo'];
+                            if (is_array($logo_setting) && !empty($logo_setting['id'])) {
+                                $elementor_logo_id = absint($logo_setting['id']);
+                                $elementor_logo_url = !empty($logo_setting['url']) ? $logo_setting['url'] : '';
+                            } elseif (is_numeric($logo_setting)) {
+                                $elementor_logo_id = absint($logo_setting);
+                            }
+                        }
+
+                        if (!empty($kit_settings['site_favicon'])) {
+                            $favicon_setting = $kit_settings['site_favicon'];
+                            if (is_array($favicon_setting) && !empty($favicon_setting['id'])) {
+                                $elementor_favicon_id = absint($favicon_setting['id']);
+                                $elementor_favicon_url = !empty($favicon_setting['url']) ? $favicon_setting['url'] : '';
+                            } elseif (is_numeric($favicon_setting)) {
+                                $elementor_favicon_id = absint($favicon_setting);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception $e) {
+                error_log('WP Fast Setup: Error al obtener identidad de Elementor: ' . $e->getMessage());
+            }
+        }
+
+        if ($elementor_logo_id && empty($elementor_logo_url)) {
+            $elementor_logo_url = wp_get_attachment_image_url($elementor_logo_id, 'medium');
+        }
+
+        if ($elementor_favicon_id && empty($elementor_favicon_url)) {
+            $elementor_favicon_url = wp_get_attachment_image_url($elementor_favicon_id, 'thumbnail');
+        }
+
         // Display settings errors/messages
         settings_errors('wp_fast_setup_messages');
 
