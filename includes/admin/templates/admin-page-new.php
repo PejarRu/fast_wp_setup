@@ -94,6 +94,8 @@
         border-radius: 0 0 12px 12px;
         box-shadow: var(--wpfs-shadow);
         padding: 30px;
+        width: 100%;
+        box-sizing: border-box;
         display: none;
     }
 
@@ -476,6 +478,53 @@
         flex: 1;
     }
 
+    .wpf-plugin-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .wpf-plugin-search {
+        flex: 1;
+        min-width: 240px;
+    }
+
+    .wpf-plugin-search input[type="search"] {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid var(--wpfs-border);
+        border-radius: 6px;
+        font-size: 14px;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .wpf-plugin-search input[type="search"]:focus {
+        border-color: var(--wpfs-primary);
+        box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+        outline: none;
+    }
+
+    .wpf-plugin-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .wpf-plugin-actions .wpf-btn {
+        padding: 10px 16px;
+    }
+
+    .wpf-favorite-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 600;
+        color: #d97706;
+    }
+
     /* Drive Settings */
     .wpf-drive-settings {
         background: #f0f8ff;
@@ -579,8 +628,8 @@
             </div>
             <p class="wpf-card-description">Configura los ajustes principales de tu sitio WordPress</p>
 
-            <form method="POST" action="">
-                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+            <form id="site-settings-form" method="POST" action="">
+                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce_site'); ?>
 
                 <div class="wpf-form-group">
                     <label for="site_name">Nombre del Sitio</label>
@@ -643,30 +692,30 @@
             </div>
             <p class="wpf-card-description">Activa o desactiva características avanzadas de WordPress</p>
 
-            <form method="POST" action="">
-                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+            <form id="features-form" method="POST" action="">
+                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce_features'); ?>
 
                 <div class="wpf-checkbox-group">
                     <div class="wpf-checkbox-item">
-                        <input type="checkbox" id="permalinks" name="activar_permalinks">
-                        <label for="permalinks">🔗 Permalinks Amigables</label>
+                        <input type="checkbox" id="feature_permalinks" class="wpf-feature-checkbox" name="features[]" value="set_permalinks">
+                        <label for="feature_permalinks">🔗 Permalinks amigables</label>
                     </div>
                     <div class="wpf-checkbox-item">
-                        <input type="checkbox" id="hello_elementor" name="activar_hello_elementor">
-                        <label for="hello_elementor">🎨 Tema Hello Elementor</label>
+                        <input type="checkbox" id="feature_hello_elementor" class="wpf-feature-checkbox" name="features[]" value="hello_elementor">
+                        <label for="feature_hello_elementor">🎨 Activar tema Hello Elementor</label>
                     </div>
                     <div class="wpf-checkbox-item">
-                        <input type="checkbox" id="disable_comments" name="desactivar_comentarios">
-                        <label for="disable_comments">🚫 Desactivar Comentarios</label>
+                        <input type="checkbox" id="feature_disable_comments" class="wpf-feature-checkbox" name="features[]" value="disable_comments">
+                        <label for="feature_disable_comments">🚫 Desactivar comentarios globalmente</label>
                     </div>
                     <div class="wpf-checkbox-item">
-                        <input type="checkbox" id="create_admin" name="activar_usuario">
-                        <label for="create_admin">👤 Crear Usuario Admin</label>
+                        <input type="checkbox" id="feature_create_admin" class="wpf-feature-checkbox" name="features[]" value="create_admin">
+                        <label for="feature_create_admin">👤 Crear usuario administrador auxiliar</label>
                     </div>
                 </div>
 
                 <div class="wpf-button-group">
-                    <button type="submit" name="save_features" class="wpf-btn wpf-btn-success" title="Aplicar las características avanzadas seleccionadas (SEO, comentarios, usuario admin, etc.)">
+                    <button type="submit" class="wpf-btn wpf-btn-success" title="Aplicar las características avanzadas seleccionadas (permalinks, tema, comentarios, usuario admin, etc.)">
                         ⚡ Aplicar Cambios
                     </button>
                 </div>
@@ -683,96 +732,174 @@
             </div>
             <p class="wpf-card-description">Instala plugins desde el repositorio oficial de WordPress o desde archivos ZIP</p>
 
-            <form method="POST" action="">
-                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+            <form id="plugin-install-form" method="POST" action="">
+                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce_plugins'); ?>
+
+                <div class="wpf-plugin-toolbar">
+                    <div class="wpf-plugin-search">
+                        <label for="plugin-search" class="screen-reader-text">Buscar plugins</label>
+                        <input type="search" id="plugin-search" placeholder="Buscar plugins..." aria-label="Buscar plugins">
+                    </div>
+                    <div class="wpf-plugin-actions">
+                        <button type="button" class="wpf-btn wpf-btn-secondary" id="select-all-plugins">Seleccionar todo</button>
+                        <button type="button" class="wpf-btn wpf-btn-secondary" id="deselect-all-plugins">Deseleccionar</button>
+                        <button type="button" class="wpf-btn wpf-btn-secondary" id="clear-all-plugins">Limpiar filtros</button>
+                        <button type="button" class="wpf-btn wpf-btn-secondary" id="sort-asc">Ordenar A-Z</button>
+                        <button type="button" class="wpf-btn wpf-btn-secondary" id="sort-desc">Ordenar Z-A</button>
+                    </div>
+                </div>
 
                 <?php
-                // Leer lista plugin del JSON
                 $json_file = WP_FAST_SETUP_PLUGIN_DIR . 'includes/plugins-list.json';
-                $all_plugins = [];
+                $plugin_entries = array();
+                $favorites_repo = $favorites_local = $favorites_drive = array();
+                $data = array();
+
                 if (file_exists($json_file)) {
                     $json_data = file_get_contents($json_file);
                     $data = json_decode($json_data, true);
 
-                    // Favoritos primero
-                    if (isset($data['favoritos']) && is_array($data['favoritos'])) {
+                    if (!empty($data['favoritos']) && is_array($data['favoritos'])) {
                         foreach ($data['favoritos'] as $fav) {
-                            $slug = $fav['slug'];
-                            $source = $fav['source'];
-                            $icon = '⭐';
-                            $all_plugins[] = ['slug' => $slug, 'type' => 'favorito', 'icon' => $icon, 'source' => $source];
+                            $source = isset($fav['source']) ? $fav['source'] : 'repo';
+                            $slug = isset($fav['slug']) ? $fav['slug'] : '';
+                            if (!$slug) {
+                                continue;
+                            }
+                            switch ($source) {
+                                case 'repo':
+                                    $favorites_repo[] = $slug;
+                                    break;
+                                case 'local':
+                                    $favorites_local[] = $slug;
+                                    break;
+                                case 'drive':
+                                    $favorites_drive[] = $slug;
+                                    break;
+                            }
                         }
                     }
 
-                    // Plugins del repositorio
-                    if (isset($data['plugins']) && is_array($data['plugins'])) {
+                    if (!empty($data['plugins']) && is_array($data['plugins'])) {
                         foreach ($data['plugins'] as $slug => $post_key) {
-                            $all_plugins[] = ['slug' => $slug, 'type' => 'repo', 'icon' => '📚', 'post_key' => $post_key, 'source' => 'repo'];
-                        }
-                    }
-
-                    // Plugins locales - obtenidos dinámicamente de la carpeta
-                    if (!empty($local_zip_files)) {
-                        foreach ($local_zip_files as $zip_file) {
-                            $friendly_name = isset($data['locales'][$zip_file]) ? $data['locales'][$zip_file] : pathinfo($zip_file, PATHINFO_FILENAME);
-                            $all_plugins[] = ['slug' => $zip_file, 'type' => 'local', 'icon' => '💾', 'zip' => $zip_file, 'plugin_slug' => '', 'source' => 'local', 'label' => $friendly_name];
+                            $label = ucwords(str_replace(array('-', '_'), ' ', $slug));
+                            $is_favorite = in_array($slug, $favorites_repo, true);
+                            $plugin_entries[] = array(
+                                'id' => 'repo_' . sanitize_title($slug),
+                                'name' => 'plugins[]',
+                                'value' => $slug,
+                                'label' => $label,
+                                'icon' => $is_favorite ? '⭐' : '📚',
+                                'source' => 'repo',
+                                'effective_type' => 'repo',
+                                'slug' => $slug,
+                                'zip' => '',
+                                'drive_id' => '',
+                                'is_favorite' => $is_favorite,
+                            );
                         }
                     }
                 }
 
-                // Plugins de Drive
+                if (!empty($local_zip_files)) {
+                    $local_labels = isset($data['locales']) && is_array($data['locales']) ? $data['locales'] : array();
+                    foreach ($local_zip_files as $zip_file) {
+                        $friendly_name = isset($local_labels[$zip_file]) ? $local_labels[$zip_file] : pathinfo($zip_file, PATHINFO_FILENAME);
+                        $slug = pathinfo($zip_file, PATHINFO_FILENAME);
+                        $is_favorite = in_array($zip_file, $favorites_local, true) || in_array($friendly_name, $favorites_local, true);
+                        $plugin_entries[] = array(
+                            'id' => 'local_' . sanitize_title($zip_file),
+                            'name' => 'local_zips[]',
+                            'value' => $zip_file,
+                            'label' => $friendly_name,
+                            'icon' => $is_favorite ? '⭐' : '💾',
+                            'source' => 'local',
+                            'effective_type' => 'local',
+                            'slug' => $slug,
+                            'zip' => $zip_file,
+                            'drive_id' => '',
+                            'is_favorite' => $is_favorite,
+                        );
+                    }
+                }
+
                 if (!empty($drive_zip_files)) {
                     foreach ($drive_zip_files as $file) {
-                        $all_plugins[] = ['slug' => $file['name'], 'type' => 'drive', 'icon' => '☁️', 'id' => $file['id'], 'source' => 'drive'];
+                        $drive_id = isset($file['id']) ? $file['id'] : '';
+                        $name = isset($file['name']) ? $file['name'] : $drive_id;
+                        if (!$drive_id) {
+                            continue;
+                        }
+                        $is_favorite = in_array($drive_id, $favorites_drive, true) || in_array($name, $favorites_drive, true);
+                        $plugin_entries[] = array(
+                            'id' => 'drive_' . sanitize_title($drive_id),
+                            'name' => 'drive_files[' . $drive_id . ']',
+                            'value' => $drive_id,
+                            'label' => $name,
+                            'icon' => $is_favorite ? '⭐' : '☁️',
+                            'source' => 'drive',
+                            'effective_type' => 'drive',
+                            'slug' => $name,
+                            'zip' => '',
+                            'drive_id' => $drive_id,
+                            'is_favorite' => $is_favorite,
+                        );
                     }
-                } elseif (!empty($local_zip_files)) {
-                    // Si no hay Drive, usar locales como respaldo, pero ya están incluidos arriba
                 }
 
-                // Mostrar lista unificada
-                echo '<div class="wpf-plugin-list">';
-                foreach ($all_plugins as $plugin) {
-                    $id = '';
-                    $name = '';
-                    $value = '';
-                    if ($plugin['type'] === 'repo') {
-                        $id = $plugin['post_key'];
-                        $name = $plugin['post_key'];
-                        $label = $plugin['slug'];
-                    } elseif ($plugin['type'] === 'local') {
-                        $id = 'local_' . sanitize_title($plugin['zip']);
-                        $name = 'install_local_zip_' . sanitize_title($plugin['zip']);
-                        $label = isset($plugin['label']) ? $plugin['label'] : $plugin['zip'];
-                    } elseif ($plugin['type'] === 'drive') {
-                        $id = 'drive_' . sanitize_title($plugin['slug']);
-                        $name = 'install_drive_zip_' . sanitize_title($plugin['slug']);
-                        $value = $plugin['id'];
-                        $label = $plugin['slug'];
-                    } elseif ($plugin['type'] === 'favorito') {
-                        // Para favoritos, usar el name basado en source
-                        if ($plugin['source'] === 'repo') {
-                            $post_key = isset($data['plugins'][$plugin['slug']]) ? $data['plugins'][$plugin['slug']] : '';
-                            $id = $post_key;
-                            $name = $post_key;
-                        } elseif ($plugin['source'] === 'local') {
-                            $zip = array_search($plugin['slug'], $data['locales']);
-                            if ($zip) {
-                                $id = 'local_' . sanitize_title($zip);
-                                $name = 'install_local_zip_' . sanitize_title($zip);
-                            }
-                        } elseif ($plugin['source'] === 'drive') {
-                            // Para drive, no se puede instalar desde favoritos directamente, pero mostrar
-                            $id = 'fav_' . sanitize_title($plugin['slug']);
-                            $name = 'install_fav_' . sanitize_title($plugin['slug']);
+                if (!empty($plugin_entries)) {
+                    usort($plugin_entries, function ($a, $b) {
+                        if (!empty($a['is_favorite']) && empty($b['is_favorite'])) {
+                            return -1;
                         }
-                        $label = $plugin['slug'];
+                        if (empty($a['is_favorite']) && !empty($b['is_favorite'])) {
+                            return 1;
+                        }
+                        return strcasecmp($a['label'], $b['label']);
+                    });
+                }
+
+                echo '<div class="wpf-plugin-list">';
+                foreach ($plugin_entries as $entry) {
+                    $data_attributes = '';
+                    $attributes_map = array(
+                        'data-plugin-source' => $entry['source'],
+                        'data-plugin-effective-type' => $entry['effective_type'],
+                        'data-plugin-label' => $entry['label'],
+                        'data-plugin-slug' => $entry['slug'],
+                        'data-plugin-zip' => $entry['zip'],
+                        'data-plugin-drive-id' => $entry['drive_id'],
+                    );
+
+                    if (!empty($entry['is_favorite'])) {
+                        $attributes_map['data-plugin-favorite'] = '1';
+                    }
+
+                    foreach ($attributes_map as $attr_key => $attr_value) {
+                        if ($attr_value !== '') {
+                            $data_attributes .= sprintf(' %s="%s"', esc_attr($attr_key), esc_attr($attr_value));
+                        }
                     }
 
                     echo '<div class="wpf-plugin-item">';
-                    echo '<input type="checkbox" id="' . esc_attr($id) . '" name="' . esc_attr($name) . '" value="' . esc_attr($value) . '">';
-                    echo '<label for="' . esc_attr($id) . '">' . $plugin['icon'] . ' ' . esc_html($label) . '</label>';
-                    if ($plugin['type'] !== 'favorito') {
-                        echo '<button type="button" class="add-fav-btn" data-slug="' . esc_attr($plugin['slug']) . '" data-source="' . esc_attr($plugin['source']) . '">Añadir a Favoritos</button>';
+                    printf(
+                        '<input type="checkbox" class="wpf-plugin-checkbox" id="%1$s" name="%2$s" value="%3$s"%4$s>',
+                        esc_attr($entry['id']),
+                        esc_attr($entry['name']),
+                        esc_attr($entry['value']),
+                        $data_attributes
+                    );
+                    printf(
+                        '<label for="%1$s">%2$s %3$s</label>',
+                        esc_attr($entry['id']),
+                        esc_html($entry['icon']),
+                        esc_html($entry['label'])
+                    );
+
+                    if (empty($entry['is_favorite'])) {
+                        echo '<button type="button" class="add-fav-btn" data-slug="' . esc_attr($entry['slug'] ?: $entry['value']) . '" data-source="' . esc_attr($entry['source']) . '">Añadir a Favoritos</button>';
+                    } else {
+                        echo '<span class="wpf-favorite-badge">⭐ Favorito</span>';
                     }
                     echo '</div>';
                 }
@@ -780,7 +907,7 @@
                 ?>
 
                 <div class="wpf-button-group">
-                    <button type="submit" name="install_plugins" class="wpf-btn wpf-btn-primary" title="Instalar todos los plugins seleccionados desde el repositorio de WordPress o archivos ZIP locales">
+                    <button type="submit" name="install_plugins" class="wpf-btn wpf-btn-primary" title="Instalar todos los plugins seleccionados desde el repositorio de WordPress, archivos locales o Google Drive">
                         📦 Instalar Plugins Seleccionados
                     </button>
                 </div>
@@ -939,400 +1066,51 @@
             </form>
         </div>
     </div>
-</div>
-
-<!-- Tab Content: Templates -->
-<div id="templates" class="wpf-tab-content">
-    <div class="wpf-card">
-        <div class="wpf-card-header">
-            <span class="wpf-card-icon">🎨</span>
-            <h2 class="wpf-card-title">Templates de Elementor</h2>
-        </div>
-        <p class="wpf-card-description">Crea headers, footers y páginas usando templates predefinidos de Elementor</p>
-
-        <div class="wpf-button-group">
-            <form method="post" action="" style="display: inline;">
-                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-                <button type="submit" name="create_header" class="wpf-btn wpf-btn-primary" title="Crear un header profesional con Elementor usando templates predefinidos">
-                    🎨 Crear Header
-                </button>
-            </form>
-
-            <form method="post" action="" style="display: inline;">
-                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-                <button type="submit" name="create_footer" class="wpf-btn wpf-btn-primary" title="Crear un footer profesional con Elementor usando templates predefinidos">
-                    🎨 Crear Footer
-                </button>
-            </form>
-        </div>
-
-        <div class="wpf-card" style="margin-top: 30px; border-left: 4px solid var(--wpfs-warning); background: #fefefe;">
-            <div class="wpf-card-header">
-                <span class="wpf-card-icon">⚠️</span>
-                <h2 class="wpf-card-title">Eliminar Plugin</h2>
-            </div>
-            <p class="wpf-card-description">Esta acción eliminará permanentemente el plugin WP Fast Setup de tu instalación de WordPress.</p>
-
-            <form method="post" action="">
-                <?php wp_nonce_field('wp_fast_setup_delete_action', 'wp_fast_setup_delete_nonce'); ?>
-                <div class="wpf-button-group">
-                    <button type="submit" name="wp_fast_setup_delete_plugin" class="wpf-btn wpf-btn-warning"
-                        onclick="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');"
-                        title="Eliminar completamente WP Fast Setup y todos sus archivos (acción irreversible)">
-                        🗑️ Eliminar Permanentemente
-                    </button>
+        <!-- Tab Content: Templates -->
+        <div id="templates" class="wpf-tab-content">
+            <div class="wpf-card">
+                <div class="wpf-card-header">
+                    <span class="wpf-card-icon">🎨</span>
+                    <h2 class="wpf-card-title">Templates de Elementor</h2>
                 </div>
-            </form>
+                <p class="wpf-card-description">Crea headers, footers y páginas usando templates predefinidos de Elementor</p>
+
+                <div class="wpf-button-group">
+                    <form method="post" action="" style="display: inline;">
+                        <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+                        <button type="submit" name="create_header" class="wpf-btn wpf-btn-primary" title="Crear un header profesional con Elementor usando templates predefinidos">
+                            🎨 Crear Header
+                        </button>
+                    </form>
+
+                    <form method="post" action="" style="display: inline;">
+                        <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+                        <button type="submit" name="create_footer" class="wpf-btn wpf-btn-primary" title="Crear un footer profesional con Elementor usando templates predefinidos">
+                            🎨 Crear Footer
+                        </button>
+                    </form>
+                </div>
+
+                <div class="wpf-card" style="margin-top: 30px; border-left: 4px solid var(--wpfs-warning); background: #fefefe;">
+                    <div class="wpf-card-header">
+                        <span class="wpf-card-icon">⚠️</span>
+                        <h2 class="wpf-card-title">Eliminar Plugin</h2>
+                    </div>
+                    <p class="wpf-card-description">Esta acción eliminará permanentemente el plugin WP Fast Setup de tu instalación de WordPress.</p>
+
+                    <form method="post" action="">
+                        <?php wp_nonce_field('wp_fast_setup_delete_action', 'wp_fast_setup_delete_nonce'); ?>
+                        <div class="wpf-button-group">
+                            <button type="submit" name="wp_fast_setup_delete_plugin" class="wpf-btn wpf-btn-warning"
+                                onclick="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');"
+                                title="Eliminar completamente WP Fast Setup y todos sus archivos (acción irreversible)">
+                                🗑️ Eliminar Permanentemente
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
-</div>
 
-
-</div>
-
-<script>
-    // Localize ajaxurl for AJAX requests
-    const ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
-
-    document.addEventListener('DOMContentLoaded', function() {
-        // Tab switching
-        const tabs = document.querySelectorAll('.wpf-tab');
-        const tabContents = document.querySelectorAll('.wpf-tab-content');
-
-        tabs.forEach(tab => {
-            tab.addEventListener('click', function() {
-                const targetTab = this.getAttribute('data-tab');
-
-                // Remove active class from all tabs
-                tabs.forEach(t => t.classList.remove('active'));
-                tabContents.forEach(tc => tc.classList.remove('active'));
-
-                // Add active class to clicked tab and corresponding content
-                this.classList.add('active');
-                document.getElementById(targetTab).classList.add('active');
-            });
-        });
-
-        // Preset pages selector
-        document.getElementById('preset_pages_select').addEventListener('change', function() {
-            const preset = this.value;
-            const textarea = document.getElementById('pages_input');
-            let presetText = '';
-
-            switch (preset) {
-                case 'base':
-                    presetText = "Inicio\nServicios\nContacto";
-                    break;
-                case 'completo':
-                    presetText = "Inicio\nNosotros\nServicios\nPortfolio\nBlog\nContacto";
-                    break;
-                case 'especial':
-                    presetText = "Home\nAbout Us\nProducts\nFAQ\nSupport\nContact";
-                    break;
-            }
-
-            textarea.value = presetText;
-        });
-
-        // AJAX form submission for plugins
-        const pluginForm = document.querySelector('#plugins form');
-        const fixedProgress = document.getElementById('wpf-fixed-progress');
-        const fixedProgressFill = document.getElementById('wpf-fixed-progress-fill');
-        const fixedProgressStatus = document.querySelector('.wpf-fixed-progress-status');
-
-        if (pluginForm) {
-            pluginForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                console.log('WP Fast Setup: Plugin form submitted');
-
-                // Show fixed progress bar
-                fixedProgress.classList.add('show');
-                fixedProgressFill.style.width = '0%';
-                fixedProgressStatus.textContent = 'Preparando instalación...';
-
-                // Scroll to progress bar
-                fixedProgress.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
-                });
-
-                // Collect form data
-                const formData = new FormData(pluginForm);
-                formData.append('action', 'wp_fast_setup_install_plugins');
-                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_action'); ?>');
-
-                console.log('WP Fast Setup: Form data collected:');
-                for (let [key, value] of formData.entries()) {
-                    console.log(key + ': ' + value);
-                }
-
-                // Send AJAX request
-                console.log('WP Fast Setup: Sending AJAX request to:', ajaxurl);
-                fetch(ajaxurl, {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => {
-                        console.log('WP Fast Setup: AJAX response received:', response);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('WP Fast Setup: AJAX data received:', data);
-                        if (data.success) {
-                            fixedProgressFill.style.width = '100%';
-                            fixedProgressStatus.textContent = 'Instalación completada exitosamente';
-                            setTimeout(() => {
-                                fixedProgress.classList.remove('show');
-                                location.reload();
-                            }, 2000);
-                        } else {
-                            fixedProgressStatus.textContent = 'Error: ' + data.message;
-                            setTimeout(() => {
-                                fixedProgress.classList.remove('show');
-                            }, 3000);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('WP Fast Setup: AJAX error:', error);
-                        fixedProgressStatus.textContent = 'Error de conexión';
-                        setTimeout(() => {
-                            fixedProgress.classList.remove('show');
-                        }, 3000);
-                    });
-            });
-        }
-
-        // AJAX form submission for site settings
-        const siteSettingsForm = document.querySelector('#site form');
-        if (siteSettingsForm) {
-            siteSettingsForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                console.log('WP Fast Setup: Site settings form submitted');
-
-                // Collect form data
-                const formData = new FormData(siteSettingsForm);
-                formData.append('action', 'wp_fast_setup_save_site_settings');
-                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_action'); ?>');
-
-                console.log('WP Fast Setup: Site settings form data collected:');
-                for (let [key, value] of formData.entries()) {
-                    console.log(key + ': ' + value);
-                }
-
-                // Send AJAX request
-                console.log('WP Fast Setup: Sending site settings AJAX request to:', ajaxurl);
-                fetch(ajaxurl, {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => {
-                        console.log('WP Fast Setup: Site settings AJAX response received:', response);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('WP Fast Setup: Site settings AJAX data received:', data);
-                        if (data.success) {
-                            alert('✅ Configuración del sitio guardada correctamente');
-                            location.reload();
-                        } else {
-                            alert('❌ Error: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('WP Fast Setup: Site settings AJAX error:', error);
-                        alert('❌ Error de conexión al guardar configuración');
-                    });
-            });
-        }
-
-        // AJAX form submission for Google Drive settings
-        const googleDriveForm = document.querySelector('#google-drive-form');
-        if (googleDriveForm) {
-            googleDriveForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                console.log('WP Fast Setup: Google Drive form submitted');
-
-                // Collect form data
-                const formData = new FormData(googleDriveForm);
-                formData.append('action', 'wp_fast_setup_save_google_drive');
-                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_action'); ?>');
-
-                console.log('WP Fast Setup: Google Drive form data collected:');
-                for (let [key, value] of formData.entries()) {
-                    console.log(key + ': ' + value);
-                }
-
-                // Send AJAX request
-                console.log('WP Fast Setup: Sending Google Drive AJAX request to:', ajaxurl);
-                fetch(ajaxurl, {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => {
-                        console.log('WP Fast Setup: Google Drive AJAX response received:', response);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('WP Fast Setup: Google Drive AJAX data received:', data);
-                        if (data.success) {
-                            alert('✅ Configuración de Google Drive guardada correctamente');
-                            // Refresh the plugins tab to show new Google Drive files
-                            location.reload();
-                        } else {
-                            alert('❌ Error: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('WP Fast Setup: Google Drive AJAX error:', error);
-                        alert('❌ Error de conexión al guardar configuración de Google Drive');
-                    });
-            });
-        }
-
-        // AJAX form submission for content/pages creation
-        const contentForm = document.getElementById('content-form');
-        if (contentForm) {
-            console.log('WP Fast Setup: Content form found and event listener attached');
-
-            contentForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                console.log('WP Fast Setup: Content form submitted');
-
-                const formData = new FormData();
-                formData.append('action', 'wp_fast_setup_create_pages');
-                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_action'); ?>');
-                formData.append('pages_input', this.querySelector('[name="pages_input"]').value);
-                formData.append('page_template', this.querySelector('[name="page_template"]:checked').value);
-                formData.append('delete_existing', this.querySelector('[name="delete_existing"]').value);
-                formData.append('create_menu', this.querySelector('[name="create_menu"]').value);
-
-                console.log('WP Fast Setup: Pages form data:');
-                console.log('- pages_input:', this.querySelector('[name="pages_input"]').value);
-                console.log('- page_template:', this.querySelector('[name="page_template"]:checked').value);
-                console.log('- delete_existing:', this.querySelector('[name="delete_existing"]').value);
-                console.log('- create_menu:', this.querySelector('[name="create_menu"]').value);
-
-                // Find the clicked button
-                let submitBtn = this.querySelector('button[type="submit"]:focus');
-                if (!submitBtn) {
-                    // Fallback: find any submit button
-                    submitBtn = this.querySelector('button[type="submit"]');
-                }
-
-                if (submitBtn) {
-                    const originalText = submitBtn.textContent;
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = 'Procesando...';
-
-                    console.log('WP Fast Setup: Sending AJAX request to:', ajaxurl);
-
-                    fetch(ajaxurl, {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => {
-                            console.log('WP Fast Setup: Raw response:', response);
-                            return response.json();
-                        })
-                        .then(data => {
-                            console.log('WP Fast Setup: AJAX response data:', data);
-                            if (data.success) {
-                                submitBtn.textContent = '✅ Completado';
-                                setTimeout(() => {
-                                    submitBtn.disabled = false;
-                                    submitBtn.textContent = originalText;
-                                }, 2000);
-                            } else {
-                                console.error('WP Fast Setup: Error in response:', data);
-                                alert('❌ Error: ' + (data.data || data.message || 'Error desconocido'));
-                                submitBtn.disabled = false;
-                                submitBtn.textContent = originalText;
-                            }
-                        })
-                        .catch(error => {
-                            console.error('WP Fast Setup: Fetch error:', error);
-                            alert('❌ Error de conexión: ' + error.message);
-                            submitBtn.disabled = false;
-                            submitBtn.textContent = originalText;
-                        });
-                } else {
-                    console.error('WP Fast Setup: No submit button found');
-                }
-            });
-        } else {
-            console.error('WP Fast Setup: Content form not found');
-        }
-
-        // Add to favorites
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('add-fav-btn')) {
-                const slug = e.target.getAttribute('data-slug');
-                const source = e.target.getAttribute('data-source');
-                const formData = new FormData();
-                formData.append('action', 'wp_fast_setup_add_favorite');
-                formData.append('slug', slug);
-                formData.append('source', source);
-                formData.append('nonce', '<?php echo wp_create_nonce('wp_fast_setup_action'); ?>');
-
-                fetch(ajaxurl, {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert('Plugin añadido a favoritos');
-                            location.reload(); // Recargar para mostrar en favoritos
-                        } else {
-                            alert('Error: ' + data.data);
-                        }
-                    })
-                    .catch(error => {
-                        alert('Error al añadir a favoritos');
-                    });
-            }
-        });
-    });
-
-    // Function to set page creation action
-    function setPageAction(action) {
-        console.log('WP Fast Setup: Setting page action:', action);
-
-        const deleteExistingField = document.getElementById('delete_existing');
-        const createMenuField = document.getElementById('create_menu');
-        const pageActionField = document.getElementById('page_action');
-
-        if (deleteExistingField && createMenuField && pageActionField) {
-            pageActionField.value = action;
-
-            switch (action) {
-                case 'create':
-                    deleteExistingField.value = '0';
-                    createMenuField.value = '0';
-                    break;
-                case 'delete':
-                    deleteExistingField.value = '1';
-                    createMenuField.value = '0';
-                    break;
-                case 'create_menu':
-                    deleteExistingField.value = '0';
-                    createMenuField.value = '1';
-                    break;
-                case 'delete_menu':
-                    deleteExistingField.value = '1';
-                    createMenuField.value = '1';
-                    break;
-            }
-
-            console.log('WP Fast Setup: Action set - delete_existing:', deleteExistingField.value, 'create_menu:', createMenuField.value);
-        } else {
-            console.error('WP Fast Setup: Required hidden fields not found');
-        }
-    }
-</script>
-
-<?php settings_errors('wp_fast_setup_messages'); ?>
+    <?php settings_errors('wp_fast_setup_messages'); ?>

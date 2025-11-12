@@ -129,6 +129,8 @@ class FeatureManager
             update_option('comment_moderation', '1');
             update_option('comment_whitelist', '1');
             update_option('moderation_notify', 0);
+            update_option('comment_registration', 1);
+            update_option('comments_notify', 0);
 
             return array(
                 'feature' => 'disable_comments',

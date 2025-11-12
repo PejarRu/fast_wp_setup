@@ -1,7 +1,8 @@
 console.log('WP Fast Setup: Script loaded successfully!');
 window.WPFastSetupMain = true;
+let wpfsPluginControlsInitialized = false;
 
-document.addEventListener('DOMContentLoaded', function() {
+const initWPFastSetup = () => {
     console.log('WP Fast Setup: DOMContentLoaded fired');
 
     const ajaxUrl = (window.wpFastSetupAjax && window.wpFastSetupAjax.ajaxurl) || window.wpfs_ajaxurl || (typeof ajaxurl !== 'undefined' ? ajaxurl : '');
@@ -85,7 +86,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return selections;
         }
 
-        const checkboxes = form.querySelectorAll('.wpf-plugin-checkbox:checked');
+        let checkboxes = form.querySelectorAll('.wpf-plugin-checkbox:checked');
+        if (!checkboxes.length) {
+            checkboxes = form.querySelectorAll('input[type="checkbox"]:checked');
+        }
+
         checkboxes.forEach(checkbox => {
             const effectiveType = checkbox.dataset.pluginEffectiveType || checkbox.dataset.pluginSource || checkbox.dataset.pluginType || 'repo';
             const slug = checkbox.dataset.pluginSlug || checkbox.value || '';
@@ -134,7 +139,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return selections;
     }
 
-    if (pluginForm) {
+    if (pluginForm && !pluginForm.dataset.wpfsAjaxBound) {
+        pluginForm.dataset.wpfsAjaxBound = '1';
         pluginForm.addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -235,7 +241,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // AJAX form submission for site settings
     const siteSettingsForm = document.querySelector('#site-settings-form');
-    if (siteSettingsForm) {
+    if (siteSettingsForm && !siteSettingsForm.dataset.wpfsAjaxBound) {
+        siteSettingsForm.dataset.wpfsAjaxBound = '1';
         let isSubmitting = false; // Prevent double submission
 
         siteSettingsForm.addEventListener('submit', function(e) {
@@ -418,79 +425,169 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // AJAX form submission for content/pages creation
+    const contentForm = document.getElementById('content-form');
+    if (contentForm && !contentForm.dataset.wpfsAjaxBound) {
+        contentForm.dataset.wpfsAjaxBound = '1';
+        contentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (!ajaxUrl) {
+                alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                return;
+            }
+
+            const submitter = e.submitter || document.activeElement || contentForm.querySelector('button[type="submit"]');
+            const originalText = submitter ? submitter.textContent : '';
+            if (submitter) {
+                submitter.disabled = true;
+                submitter.textContent = 'Procesando...';
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'wp_fast_setup_create_pages');
+            if (defaultNonce) {
+                formData.append('nonce', defaultNonce);
+            }
+
+            const pagesInput = contentForm.querySelector('[name="pages_input"]');
+            const templateInput = contentForm.querySelector('[name="page_template"]:checked');
+            const deleteExisting = contentForm.querySelector('[name="delete_existing"]');
+            const createMenu = contentForm.querySelector('[name="create_menu"]');
+            const pageAction = contentForm.querySelector('[name="page_action"]');
+
+            formData.append('pages_input', pagesInput ? pagesInput.value : '');
+            formData.append('page_template', templateInput ? templateInput.value : '');
+            if (deleteExisting) {
+                formData.append('delete_existing', deleteExisting.value);
+            }
+            if (createMenu) {
+                formData.append('create_menu', createMenu.value);
+            }
+            if (pageAction) {
+                formData.append('page_action', pageAction.value);
+            }
+
+            fetch(ajaxUrl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('WP Fast Setup: Pages response:', data);
+                if (data.success) {
+                    if (submitter) {
+                        submitter.textContent = '✅ Completado';
+                    }
+                    setTimeout(() => {
+                        if (submitter) {
+                            submitter.disabled = false;
+                            submitter.textContent = originalText || 'Procesar';
+                        }
+                    }, 2000);
+                } else {
+                    alert('❌ Error: ' + (data.data || data.message || 'Error desconocido'));
+                    if (submitter) {
+                        submitter.disabled = false;
+                        submitter.textContent = originalText || 'Procesar';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('WP Fast Setup: Pages error:', error);
+                alert('❌ Error de conexión: ' + error.message);
+                if (submitter) {
+                    submitter.disabled = false;
+                    submitter.textContent = originalText || 'Procesar';
+                }
+            });
+        });
+    }
+
     // AJAX form submission for features
     const featuresForm = document.querySelector('#features-form');
-    if (featuresForm) {
-        console.log('WP Fast Setup: Features form found');
-        const featureButtons = featuresForm.querySelectorAll('.wpf-feature-btn');
-        const nonceField = featuresForm.querySelector('input[name="wp_fast_setup_nonce_features"]');
-        const nonceValue = nonceField ? nonceField.value : '';
+    if (featuresForm && !featuresForm.dataset.wpfsAjaxBound) {
+        featuresForm.dataset.wpfsAjaxBound = '1';
+        featuresForm.addEventListener('submit', function(e) {
+            e.preventDefault();
 
-        featureButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const feature = this.dataset.feature;
-                if (!feature) {
-                    console.warn('WP Fast Setup: Feature button without feature attribute');
-                    return;
+            const selectedFeatures = Array.from(featuresForm.querySelectorAll('.wpf-feature-checkbox:checked'));
+            if (!selectedFeatures.length) {
+                alert('Selecciona al menos una característica para aplicar.');
+                return;
+            }
+
+            if (!ajaxUrl) {
+                alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                return;
+            }
+
+            const submitButton = e.submitter || featuresForm.querySelector('button[type="submit"]');
+            const originalText = submitButton ? submitButton.innerHTML : '';
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '⏳ Aplicando...';
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'wp_fast_setup_activate_features');
+            if (defaultNonce) {
+                formData.append('nonce', defaultNonce);
+            }
+
+            const nonceField = featuresForm.querySelector('input[name="wp_fast_setup_nonce_features"]');
+            if (nonceField) {
+                formData.append('wp_fast_setup_nonce_features', nonceField.value);
+            }
+
+            selectedFeatures.forEach(checkbox => {
+                const featureValue = checkbox.value || checkbox.dataset.feature || checkbox.id;
+                if (featureValue) {
+                    formData.append('features[]', featureValue);
                 }
+            });
 
-                if (!ajaxUrl) {
-                    alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
-                    return;
+            fetch(ajaxUrl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-
-                const confirmMessage = this.dataset.confirm;
-                if (confirmMessage && !window.confirm(confirmMessage)) {
-                    return;
-                }
-
-                const originalText = this.innerHTML;
-                this.disabled = true;
-                this.innerHTML = '<span class="wpf-feature-label">⏳ Aplicando...</span>';
-
-                const formData = new FormData();
-                formData.append('action', 'wp_fast_setup_activate_features');
-                if (defaultNonce) {
-                    formData.append('nonce', defaultNonce);
-                }
-                if (nonceValue) {
-                    formData.append('wp_fast_setup_nonce_features', nonceValue);
-                }
-                formData.append('features[]', feature);
-
-                fetch(ajaxUrl, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                return response.json();
+            })
+            .then(data => {
+                console.log('WP Fast Setup: Features response:', data);
+                if (data.success) {
+                    alert('✅ Características aplicadas correctamente');
+                    window.location.reload();
+                } else {
+                    alert('❌ Error: ' + (data.message || 'Error desconocido'));
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalText;
                     }
-                    const contentType = response.headers.get('content-type');
-                    if (contentType && contentType.includes('application/json')) {
-                        return response.json();
-                    }
-                    return response.text().then(text => {
-                        throw new Error('Respuesta no JSON: ' + text.substring(0, 100));
-                    });
-                })
-                .then(data => {
-                    console.log('WP Fast Setup: Feature response for', feature, data);
-                    if (data.success) {
-                        alert('✅ Característica aplicada correctamente');
-                        window.location.reload();
-                    } else {
-                        this.disabled = false;
-                        this.innerHTML = originalText;
-                        alert('❌ Error: ' + (data.message || 'Error desconocido'));
-                    }
-                })
-                .catch(error => {
-                    console.error('WP Fast Setup: Feature error:', error);
-                    alert('❌ Error de conexión al aplicar característica');
-                    this.disabled = false;
-                    this.innerHTML = originalText;
-                });
+                }
+            })
+            .catch(error => {
+                console.error('WP Fast Setup: Features error:', error);
+                alert('❌ Error de conexión al aplicar características');
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            })
+            .finally(() => {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText || '⚡ Aplicar Cambios';
+                }
             });
         });
     }
@@ -549,6 +646,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize plugin controls when plugins tab is activated
     function initializePluginControls() {
         console.log('WP Fast Setup: Initializing plugin controls');
+        if (wpfsPluginControlsInitialized) {
+            console.log('WP Fast Setup: Plugin controls already initialized');
+            return;
+        }
 
         // Plugin search and control functionality
         const pluginSearch = document.getElementById('plugin-search');
@@ -679,6 +780,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Add cursor pointer to indicate clickability
             item.style.cursor = 'pointer';
         });
+
+        wpfsPluginControlsInitialized = true;
     }
 
     // Initialize plugin controls if plugins tab is active by default
@@ -687,7 +790,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     console.log('WP Fast Setup: Initialization complete');
-});
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWPFastSetup);
+} else {
+    initWPFastSetup();
+}
 
 // Function to set page creation action
 function setPageAction(action) {
