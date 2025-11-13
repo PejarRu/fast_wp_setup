@@ -130,6 +130,77 @@ class Admin_Pages
         // Get favorites
         $favorites = $this->feature_manager->get_favorites();
 
+        // Detect existing legal pages that can be desindexed via Yoast
+        $legal_pages_for_noindex = array();
+        $legal_pages_prechecked = array();
+        $legal_keyword_map = array(
+            'aviso legal',
+            'imprint',
+            'declaración de privacidad',
+            'declaracion de privacidad',
+            'privacy statement',
+            'privacy policy',
+            'política de privacidad',
+            'politica de privacidad',
+            'descargo de responsabilidad',
+            'disclaimer',
+            'política de cookies',
+            'politica de cookies',
+            'cookie policy',
+            'cookie statement',
+            '(ue)'
+        );
+
+        $legal_pages_query = get_posts(array(
+            'post_type'      => 'page',
+            'post_status'    => array('publish', 'private'),
+            'posts_per_page' => -1,
+            'orderby'        => 'title',
+            'order'          => 'ASC',
+        ));
+
+        if (!empty($legal_pages_query)) {
+            foreach ($legal_pages_query as $page_post) {
+                $title = isset($page_post->post_title) && $page_post->post_title !== ''
+                    ? $page_post->post_title
+                    : sprintf(__('(Sin título) #%d', 'wp-fast-setup'), $page_post->ID);
+
+                $slug = isset($page_post->post_name) ? $page_post->post_name : '';
+                $haystack = strtolower($title . ' ' . $slug);
+                $is_recommended = false;
+
+                foreach ($legal_keyword_map as $keyword) {
+                    if (false !== strpos($haystack, strtolower($keyword))) {
+                        $is_recommended = true;
+                        break;
+                    }
+                }
+
+                $already_noindex = '1' === get_post_meta($page_post->ID, '_yoast_wpseo_meta-robots-noindex', true);
+                $legal_pages_for_noindex[] = array(
+                    'id' => $page_post->ID,
+                    'title' => $title,
+                    'permalink' => get_permalink($page_post->ID),
+                    'recommended' => $is_recommended,
+                    'already_noindex' => $already_noindex,
+                );
+
+                if ($is_recommended && !$already_noindex) {
+                    $legal_pages_prechecked[] = $page_post->ID;
+                }
+            }
+
+            usort($legal_pages_for_noindex, function ($a, $b) {
+                if (!empty($a['recommended']) && empty($b['recommended'])) {
+                    return -1;
+                }
+                if (empty($a['recommended']) && !empty($b['recommended'])) {
+                    return 1;
+                }
+                return strcasecmp($a['title'], $b['title']);
+            });
+        }
+
         $elementor_logo_id = 0;
         $elementor_favicon_id = 0;
         $elementor_logo_url = '';

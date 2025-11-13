@@ -17,6 +17,128 @@ class FeatureManager
         add_action('wp_ajax_wp_fast_setup_toggle_favorite', array($this, 'ajax_toggle_favorite'));
         add_action('wp_ajax_wp_fast_setup_delete_inactive_plugins', array($this, 'ajax_delete_inactive_plugins'));
         add_action('wp_ajax_wp_fast_setup_delete_inactive_themes', array($this, 'ajax_delete_inactive_themes'));
+        add_action('wp_ajax_wp_fast_setup_set_pages_noindex', array($this, 'ajax_set_pages_noindex'));
+    }
+
+    /**
+     * AJAX handler to set Yoast noindex flag on selected pages
+     */
+    public function ajax_set_pages_noindex()
+    {
+        $nonce_valid = false;
+        if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], 'wp_fast_setup_action')) {
+            $nonce_valid = true;
+        } elseif (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'wp_fast_setup_action')) {
+            $nonce_valid = true;
+        } elseif (isset($_POST['wp_fast_setup_nonce_legal']) && wp_verify_nonce($_POST['wp_fast_setup_nonce_legal'], 'wp_fast_setup_action')) {
+            $nonce_valid = true;
+        }
+
+        if (!$nonce_valid) {
+            wp_send_json_error('Nonce inválido. Recarga la página e inténtalo de nuevo.');
+        }
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error('Debes iniciar sesión para realizar esta acción.');
+        }
+
+        if (!current_user_can('edit_pages')) {
+            wp_send_json_error('No tienes permisos suficientes para modificar estas páginas.');
+        }
+
+        $page_ids = isset($_POST['legal_page_ids']) ? array_map('absint', (array) $_POST['legal_page_ids']) : array();
+        $page_ids = array_values(array_filter($page_ids));
+
+        if (empty($page_ids)) {
+            wp_send_json_error('Selecciona al menos una página legal.');
+        }
+
+        $updated = array();
+        $already = array();
+        $skipped = array();
+
+        foreach ($page_ids as $page_id) {
+            $page = get_post($page_id);
+            if (!$page || $page->post_type !== 'page') {
+                $skipped[] = array('id' => $page_id, 'reason' => 'No es una página válida');
+                continue;
+            }
+
+            if (!current_user_can('edit_post', $page_id)) {
+                $skipped[] = array('id' => $page_id, 'reason' => 'Permisos insuficientes');
+                continue;
+            }
+
+            $result = $this->mark_page_as_noindex($page_id);
+            $title = get_the_title($page_id);
+
+            if ('already' === $result) {
+                $already[] = array('id' => $page_id, 'title' => $title);
+            } elseif (true === $result) {
+                $updated[] = array('id' => $page_id, 'title' => $title);
+            } else {
+                $skipped[] = array('id' => $page_id, 'reason' => $result ?: 'Error desconocido');
+            }
+        }
+
+        if (empty($updated) && empty($already)) {
+            wp_send_json_error(array(
+                'message' => 'No se pudo aplicar el noindex a las páginas seleccionadas.',
+                'skipped' => $skipped,
+            ));
+        }
+
+        $yoast_active = class_exists('\WPSEO_Meta') || defined('WPSEO_VERSION');
+        $message_parts = array();
+
+        if (!empty($updated)) {
+            $message_parts[] = sprintf('%d página(s) marcadas como noindex.', count($updated));
+        }
+
+        if (!empty($already)) {
+            $message_parts[] = sprintf('%d ya estaban desindexadas.', count($already));
+        }
+
+        if (!empty($skipped)) {
+            $message_parts[] = sprintf('%d página(s) se omitieron (%s).', count($skipped), implode(', ', wp_list_pluck($skipped, 'reason')));
+        }
+
+        wp_send_json_success(array(
+            'message' => implode(' ', $message_parts),
+            'yoast_active' => $yoast_active,
+            'updated' => $updated,
+            'already' => $already,
+            'skipped' => $skipped,
+        ));
+    }
+
+    /**
+     * Apply Yoast noindex meta to a page
+     *
+     * @param int $page_id
+     * @return true|string Returns true when updated, 'already' when it already had the flag, or error string
+     */
+    private function mark_page_as_noindex($page_id)
+    {
+        try {
+            $meta_key = '_yoast_wpseo_meta-robots-noindex';
+            $existing_value = get_post_meta($page_id, $meta_key, true);
+            $already = ('1' === (string) $existing_value);
+
+            if (class_exists('\WPSEO_Meta') && method_exists('\WPSEO_Meta', 'set_value')) {
+                \WPSEO_Meta::set_value('meta-robots-noindex', '1', $page_id);
+            } else {
+                update_post_meta($page_id, $meta_key, '1');
+            }
+
+            // Ensure Yoast keeps follow/adv defaults consistent
+            update_post_meta($page_id, '_yoast_wpseo_meta-robots-nofollow', '0');
+            update_post_meta($page_id, '_yoast_wpseo_meta-robots-adv', 'none');
+
+            return $already ? 'already' : true;
+        } catch (Exception $e) {
+            return $e->getMessage();
+        }
     }
 
     /**

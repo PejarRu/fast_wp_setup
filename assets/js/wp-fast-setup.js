@@ -625,6 +625,109 @@ const initWPFastSetup = () => {
         });
     }
 
+    // AJAX handler for legal pages noindexing
+    const legalNoindexForm = document.getElementById('legal-noindex-form');
+    if (legalNoindexForm && !legalNoindexForm.dataset.wpfsAjaxBound) {
+        legalNoindexForm.dataset.wpfsAjaxBound = '1';
+        const legalStatus = document.getElementById('legal-noindex-status');
+        const selectRecommendedBtn = document.getElementById('legal-select-recommended');
+        const selectAllBtn = document.getElementById('legal-select-all');
+        const clearSelectionBtn = document.getElementById('legal-clear-selection');
+
+        const getLegalCheckboxes = () => legalNoindexForm.querySelectorAll('input[name="legal_page_ids[]"]');
+        const setLegalStatus = (message, isError = false) => {
+            if (!legalStatus) {
+                return;
+            }
+            legalStatus.textContent = message || '';
+            legalStatus.style.color = isError ? '#b32d2e' : '#0a6b1b';
+        };
+
+        if (selectRecommendedBtn) {
+            selectRecommendedBtn.addEventListener('click', () => {
+                getLegalCheckboxes().forEach(checkbox => {
+                    checkbox.checked = checkbox.dataset.recommended === '1';
+                });
+            });
+        }
+
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                getLegalCheckboxes().forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+            });
+        }
+
+        if (clearSelectionBtn) {
+            clearSelectionBtn.addEventListener('click', () => {
+                getLegalCheckboxes().forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                setLegalStatus('');
+            });
+        }
+
+        legalNoindexForm.addEventListener('submit', e => {
+            e.preventDefault();
+
+            if (!ajaxUrl) {
+                alert('No se pudo determinar la URL de AJAX. Recarga la página e inténtalo nuevamente.');
+                return;
+            }
+
+            const checked = Array.from(getLegalCheckboxes()).filter(cb => cb.checked);
+            if (!checked.length) {
+                alert('Selecciona al menos una página legal.');
+                return;
+            }
+
+            const submitter = e.submitter || legalNoindexForm.querySelector('button[type="submit"]');
+            const originalText = submitter ? submitter.innerHTML : '';
+            if (submitter) {
+                submitter.disabled = true;
+                submitter.innerHTML = 'Aplicando...';
+            }
+
+            const formData = new FormData(legalNoindexForm);
+            formData.append('action', 'wp_fast_setup_set_pages_noindex');
+            if (defaultNonce) {
+                formData.append('nonce', defaultNonce);
+            }
+
+            fetch(ajaxUrl, {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('WP Fast Setup: Legal noindex response:', data);
+                    if (data.success) {
+                        const payload = data.data || {};
+                        const message = payload.message || 'Páginas desindexadas correctamente.';
+                        alert('✅ ' + message);
+                        setLegalStatus(message, false);
+                    } else {
+                        const errorMessage = (data && (data.message || (data.data && data.data.message))) || 'No se pudo desindexar.';
+                        alert('❌ ' + errorMessage);
+                        setLegalStatus(errorMessage, true);
+                    }
+                })
+                .catch(error => {
+                    console.error('WP Fast Setup: Legal noindex error:', error);
+                    const message = 'Error de conexión: ' + error.message;
+                    alert('❌ ' + message);
+                    setLegalStatus(message, true);
+                })
+                .finally(() => {
+                    if (submitter) {
+                        submitter.disabled = false;
+                        submitter.innerHTML = originalText || '🚫 Desindexar páginas seleccionadas';
+                    }
+                });
+        });
+    }
+
     // AJAX form submission for features
     const featuresForm = document.querySelector('#features-form');
     const createAdminCheckbox = document.getElementById('feature_create_admin');

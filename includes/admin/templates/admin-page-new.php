@@ -746,6 +746,63 @@
     .wpf-content-grid .wpf-button-group {
         margin-top: auto;
     }
+
+    .wpf-legal-pages-list {
+        border: 1px solid var(--wpfs-border, #dcdcdc);
+        border-radius: 12px;
+        padding: 12px;
+        max-height: 320px;
+        overflow: auto;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .wpf-legal-page {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--wpfs-border, #e2e4e7);
+        border-radius: 10px;
+        align-items: center;
+        background: #fdfdfd;
+    }
+
+    .wpf-legal-page label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+        flex: 1;
+    }
+
+    .wpf-legal-tags {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        font-size: 12px;
+    }
+
+    .wpf-legal-tag {
+        background: #eef1f6;
+        color: #1d2327;
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-weight: 600;
+    }
+
+    .wpf-legal-tag--highlight {
+        background: #d9f1db;
+        color: #0a6b1b;
+    }
+
+    .wpf-legal-tag--warning {
+        background: #fff4db;
+        color: #7a3a00;
+    }
 </style>
 
 <div class="wpf-setup-wrapper">
@@ -1390,6 +1447,70 @@
                     </div>
                 </form>
             </div>
+        </div>
+        <div class="wpf-card">
+            <div class="wpf-card-header">
+                <span class="wpf-card-icon">🛡️</span>
+                <h2 class="wpf-card-title">Desindexar páginas legales en Yoast SEO</h2>
+            </div>
+            <p class="wpf-card-description">
+                Marca las páginas legales generadas por Complianz (o cualquier otra) como <strong>noindex</strong> para que Yoast SEO deje de incluirlas en los motores de búsqueda.
+                <?php if (!defined('WPSEO_VERSION')) : ?>
+                    <br><small style="color: var(--wpfs-warning);">Yoast SEO no está activo actualmente, pero guardaremos la meta correspondiente para que surta efecto en cuanto se active.</small>
+                <?php endif; ?>
+            </p>
+
+            <?php if (!empty($legal_pages_for_noindex)) : ?>
+                <form id="legal-noindex-form" method="post" action="">
+                    <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce_legal'); ?>
+
+                    <div class="wpf-button-group" style="justify-content:flex-start; flex-wrap:wrap; gap:10px;">
+                        <button type="button" class="wpf-btn wpf-btn-secondary" id="legal-select-recommended">Seleccionar recomendadas</button>
+                        <button type="button" class="wpf-btn wpf-btn-secondary" id="legal-select-all">Seleccionar todo</button>
+                        <button type="button" class="wpf-btn" id="legal-clear-selection">Limpiar selección</button>
+                    </div>
+
+                    <div class="wpf-legal-pages-list">
+                        <?php foreach ($legal_pages_for_noindex as $legal_page) :
+                            $checkbox_id = 'legal-page-' . $legal_page['id'];
+                            $is_prechecked = in_array($legal_page['id'], $legal_pages_prechecked, true);
+                        ?>
+                            <div class="wpf-legal-page">
+                                <label for="<?php echo esc_attr($checkbox_id); ?>">
+                                    <input type="checkbox"
+                                           name="legal_page_ids[]"
+                                           id="<?php echo esc_attr($checkbox_id); ?>"
+                                           value="<?php echo esc_attr($legal_page['id']); ?>"
+                                           <?php checked($is_prechecked); ?>
+                                           data-recommended="<?php echo !empty($legal_page['recommended']) ? '1' : '0'; ?>"
+                                           data-noindex="<?php echo !empty($legal_page['already_noindex']) ? '1' : '0'; ?>">
+                                    <span><?php echo esc_html($legal_page['title']); ?></span>
+                                </label>
+                                <div class="wpf-legal-tags">
+                                    <?php if (!empty($legal_page['recommended'])) : ?>
+                                        <span class="wpf-legal-tag wpf-legal-tag--highlight">Recomendada</span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($legal_page['already_noindex'])) : ?>
+                                        <span class="wpf-legal-tag wpf-legal-tag--warning">Ya sin index</span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <div class="wpf-button-group">
+                        <button type="submit" class="wpf-btn wpf-btn-warning" title="Aplicar la etiqueta noindex a Yoast SEO en las páginas seleccionadas">
+                            🚫 Desindexar páginas seleccionadas
+                        </button>
+                    </div>
+                    <span id="legal-noindex-status" class="wpf-footer-status"></span>
+                </form>
+            <?php else : ?>
+                <div class="wpf-notice wpf-notice-info">
+                    <span class="wpf-notice-icon">ℹ️</span>
+                    <div>No se encontraron páginas publicadas para listar. Crea tus documentos legales con Complianz y vuelve a intentarlo.</div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
     <!-- Tab Content: Templates -->
