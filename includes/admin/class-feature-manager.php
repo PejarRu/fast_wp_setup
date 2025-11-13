@@ -125,14 +125,15 @@ class FeatureManager
             $existing_value = get_post_meta($page_id, $meta_key, true);
             $already = ('1' === (string) $existing_value);
 
-            if (class_exists('\WPSEO_Meta') && method_exists('\WPSEO_Meta', 'set_value')) {
+            if (class_exists('\\WPSEO_Meta') && method_exists('\\WPSEO_Meta', 'set_value')) {
                 \WPSEO_Meta::set_value('meta-robots-noindex', '1', $page_id);
+                \WPSEO_Meta::set_value('meta-robots-nofollow', '1', $page_id);
             } else {
                 update_post_meta($page_id, $meta_key, '1');
+                update_post_meta($page_id, '_yoast_wpseo_meta-robots-nofollow', '1');
             }
 
-            // Ensure Yoast keeps follow/adv defaults consistent
-            update_post_meta($page_id, '_yoast_wpseo_meta-robots-nofollow', '0');
+            // Ensure advanced directives reset so Yoast shows the toggles as expected
             update_post_meta($page_id, '_yoast_wpseo_meta-robots-adv', 'none');
 
             return $already ? 'already' : true;
