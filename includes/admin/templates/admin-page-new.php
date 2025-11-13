@@ -1439,8 +1439,9 @@
                 </div>
                 <p class="wpf-card-description">Esta acción eliminará permanentemente el plugin WP Fast Setup de tu instalación de WordPress.</p>
 
-                <form method="post" action="">
-                    <?php wp_nonce_field('wp_fast_setup_delete_action', 'wp_fast_setup_delete_nonce'); ?>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <?php wp_nonce_field('wp_fast_setup_delete_plugin', 'wp_fast_setup_delete_nonce'); ?>
+                    <input type="hidden" name="action" value="wp_fast_setup_delete_plugin">
                     <div class="wpf-button-group">
                         <button type="submit" name="wp_fast_setup_delete_plugin" class="wpf-btn wpf-btn-warning"
                             onclick="return confirm('¿Estás seguro de que quieres eliminar permanentemente el plugin WP Fast Setup? Esta acción no se puede deshacer.');"
@@ -1459,10 +1460,10 @@
             <span>Descargas de Configuración (JSON)</span>
         </div>
         <div class="wpf-footer-links">
-            <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'data/admin-site-enhancements-ase-settings-2025-10-14-0818.json'); ?>" download>
+            <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'includes/data/admin-site-enhancements-ase-settings-2025-10-14-0818.json'); ?>" download>
                 Descargar configuración ASE (JSON)
             </a>
-            <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'data/wp-rocket-settings-fast-2025-02-07-67a5ca0c3a004.json'); ?>" download>
+            <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'includes/data/wp-rocket-settings-fast-2025-02-07-67a5ca0c3a004.json'); ?>" download>
                 Descargar configuración WP Rocket (JSON)
             </a>
         </div>
