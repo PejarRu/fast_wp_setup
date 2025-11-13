@@ -391,15 +391,20 @@ const initWPFastSetup = () => {
             .then(data => {
                 console.log('WP Fast Setup: Site settings response:', data);
                 if (data.success) {
-                    let message = '✅ Configuración del sitio guardada correctamente';
-                    if (data.language_updated && !data.language_available) {
+                    const payload = data.data || {};
+                    let message = payload.message || '✅ Configuración del sitio guardada correctamente';
+                    if (payload.language_updated && payload.language_available === false) {
                         message += '\n⚠️ Los archivos de idioma no están disponibles. El cambio de idioma puede no surtir efecto hasta que instales los archivos de idioma correspondientes.';
+                    }
+                    if (payload.user_locale_updates && payload.user_locale_updates.updated) {
+                        message += `\n👤 Idioma aplicado a ${payload.user_locale_updates.updated} usuario(s) administrador(es).`;
                     }
                     alert(message);
                     // Force reload from server to ensure language changes take effect
                     window.location.reload(true);
                 } else {
-                    alert('❌ Error: ' + (data.message || 'Error desconocido'));
+                    const errorMessage = (data && data.data && data.data.message) || data.message || 'Error desconocido';
+                    alert('❌ Error: ' + errorMessage);
                 }
                 isSubmitting = false; // Reset flag
             })

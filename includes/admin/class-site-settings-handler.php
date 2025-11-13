@@ -67,6 +67,9 @@ class SiteSettingsHandler
             $site_url = esc_url_raw($_POST['url_sitio']);
             $disable_comments = isset($_POST['disable_comments']) ? intval($_POST['disable_comments']) : 0;
             $set_permalinks = isset($_POST['set_permalinks']) ? intval($_POST['set_permalinks']) : 0;
+            $language_available = true;
+            $language_changed = false;
+            $user_locale_updates = array('updated' => 0, 'skipped' => 0);
 
             // Update site name
             if (!empty($site_name)) {
@@ -95,6 +98,13 @@ class SiteSettingsHandler
 
             // Update language
             if (!empty($site_language)) {
+                $previous_language = get_option('WPLANG');
+                if (empty($previous_language)) {
+                    $previous_language = get_locale();
+                }
+
+                $language_changed = ($site_language !== $previous_language);
+
                 error_log('WP Fast Setup: Updating language to: ' . $site_language);
 
                 // Update WPLANG option (this is the primary language setting)
@@ -135,6 +145,10 @@ class SiteSettingsHandler
                 }
 
                 // Try to download language pack if available
+                if (!function_exists('wp_download_language_pack') && file_exists(ABSPATH . 'wp-admin/includes/translation-install.php')) {
+                    require_once ABSPATH . 'wp-admin/includes/translation-install.php';
+                }
+
                 if (function_exists('wp_download_language_pack')) {
                     $download_result = wp_download_language_pack($site_language);
                     error_log('WP Fast Setup: Language pack download result: ' . ($download_result ? 'success' : 'failed'));
@@ -149,6 +163,9 @@ class SiteSettingsHandler
                 // Verify the language was actually saved
                 $saved_lang = get_option('WPLANG');
                 error_log('WP Fast Setup: Verification - saved language: ' . $saved_lang);
+
+                // Sync admin/user locales so the dashboard reflects the change immediately
+                $user_locale_updates = $this->sync_user_locales_with_site($site_language, $previous_language);
             }
 
             // Handle comments disabling
@@ -182,8 +199,9 @@ class SiteSettingsHandler
                 'site_name_updated' => !empty($site_name),
                 'admin_email_updated' => !empty($admin_email),
                 'site_url_updated' => !empty($site_url),
-                'language_updated' => !empty($site_language),
-                'language_available' => $language_available ?? true,
+                'language_updated' => $language_changed,
+                'language_available' => $language_available,
+                'user_locale_updates' => $user_locale_updates,
                 'comments_disabled' => $disable_comments,
                 'permalinks_set' => $set_permalinks
             ));
@@ -383,6 +401,59 @@ class SiteSettingsHandler
     }
 
     /**
+     * Synchronize administrator/user locales with the selected site locale so the dashboard reflects the change immediately
+     */
+    private function sync_user_locales_with_site($new_locale, $previous_locale = '')
+    {
+        $result = array(
+            'updated' => 0,
+            'skipped' => 0,
+        );
+
+        if (empty($new_locale)) {
+            return $result;
+        }
+
+        $user_ids = array();
+
+        $admin_users = get_users(array(
+            'role__in' => array('administrator'),
+            'fields' => 'ID'
+        ));
+
+        if (!empty($admin_users)) {
+            foreach ($admin_users as $admin_id) {
+                $user_ids[intval($admin_id)] = true;
+            }
+        }
+
+        $current_user_id = get_current_user_id();
+        if ($current_user_id) {
+            $user_ids[intval($current_user_id)] = true;
+        }
+
+        if (empty($user_ids)) {
+            return $result;
+        }
+
+        foreach (array_keys($user_ids) as $user_id) {
+            $existing_locale = get_user_meta($user_id, 'locale', true);
+
+            if (!empty($existing_locale) && !empty($previous_locale) && $existing_locale !== $previous_locale) {
+                $result['skipped']++;
+                continue;
+            }
+
+            $updated = update_user_meta($user_id, 'locale', $new_locale);
+            if ($updated !== false) {
+                $result['updated']++;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Get available languages
      */
     public function get_available_languages()
@@ -419,6 +490,10 @@ class SiteSettingsHandler
     private function is_language_available($locale)
     {
         try {
+            if ($locale === 'en_US') {
+                return true;
+            }
+
             // Get WordPress language directory
             $lang_dir = '';
 
