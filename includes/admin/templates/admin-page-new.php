@@ -869,6 +869,12 @@
                 </div>
 
                 <div class="wpf-form-group">
+                    <label for="admin_email">Correo del Administrador</label>
+                    <input type="email" id="admin_email" name="admin_email" value="<?php echo esc_attr($current_admin_email); ?>" placeholder="admin@misitio.com">
+                    <small style="color: var(--wpfs-text-light);">Actualiza el correo principal del sitio inmediatamente, sin procesos de confirmación por email.</small>
+                </div>
+
+                <div class="wpf-form-group">
                     <label for="site_language">Idioma del Sitio</label>
                     <select id="site_language" name="idioma_sitio">
                         <option value="es_ES" <?php selected($current_language, 'es_ES'); ?>>Español</option>
