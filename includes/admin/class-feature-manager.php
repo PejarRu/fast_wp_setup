@@ -56,6 +56,11 @@ class FeatureManager
         $updated = array();
         $already = array();
         $skipped = array();
+        $template_changes = array(
+            'changed' => 0,
+            'already' => 0,
+            'failed' => 0,
+        );
 
         foreach ($page_ids as $page_id) {
             $page = get_post($page_id);
@@ -72,10 +77,23 @@ class FeatureManager
             $result = $this->mark_page_as_noindex($page_id);
             $title = get_the_title($page_id);
 
-            if ('already' === $result) {
-                $already[] = array('id' => $page_id, 'title' => $title);
+            if (is_array($result)) {
+                $status = isset($result['status']) ? $result['status'] : 'updated';
+                $template_status = isset($result['template']) ? $result['template'] : '';
+
+                if ($template_status && isset($template_changes[$template_status])) {
+                    $template_changes[$template_status]++;
+                }
+
+                if ('already' === $status) {
+                    $already[] = array('id' => $page_id, 'title' => $title, 'template' => $template_status);
+                } else {
+                    $updated[] = array('id' => $page_id, 'title' => $title, 'template' => $template_status);
+                }
+            } elseif ('already' === $result) {
+                $already[] = array('id' => $page_id, 'title' => $title, 'template' => 'unknown');
             } elseif (true === $result) {
-                $updated[] = array('id' => $page_id, 'title' => $title);
+                $updated[] = array('id' => $page_id, 'title' => $title, 'template' => 'unknown');
             } else {
                 $skipped[] = array('id' => $page_id, 'reason' => $result ?: 'Error desconocido');
             }
@@ -92,11 +110,19 @@ class FeatureManager
         $message_parts = array();
 
         if (!empty($updated)) {
-            $message_parts[] = sprintf('%d página(s) marcadas como noindex.', count($updated));
+            $message_parts[] = sprintf('%d página(s) marcadas como noindex + nofollow.', count($updated));
         }
 
         if (!empty($already)) {
-            $message_parts[] = sprintf('%d ya estaban desindexadas.', count($already));
+            $message_parts[] = sprintf('%d ya estaban desindexadas (se reafirmaron los ajustes).', count($already));
+        }
+
+        if ($template_changes['changed'] > 0) {
+            $message_parts[] = sprintf('%d página(s) ahora usan la plantilla Elementor Full Width.', $template_changes['changed']);
+        }
+
+        if ($template_changes['failed'] > 0) {
+            $message_parts[] = sprintf('%d página(s) no pudieron cambiar de plantilla.', $template_changes['failed']);
         }
 
         if (!empty($skipped)) {
@@ -109,6 +135,7 @@ class FeatureManager
             'updated' => $updated,
             'already' => $already,
             'skipped' => $skipped,
+            'template_changes' => $template_changes,
         ));
     }
 
@@ -116,7 +143,7 @@ class FeatureManager
      * Apply Yoast noindex meta to a page
      *
      * @param int $page_id
-     * @return true|string Returns true when updated, 'already' when it already had the flag, or error string
+     * @return array|string Returns status/template info array or error string
      */
     private function mark_page_as_noindex($page_id)
     {
@@ -136,10 +163,42 @@ class FeatureManager
             // Ensure advanced directives reset so Yoast shows the toggles as expected
             update_post_meta($page_id, '_yoast_wpseo_meta-robots-adv', 'none');
 
-            return $already ? 'already' : true;
+            $template_status = $this->apply_elementor_full_width_template($page_id);
+
+            return array(
+                'status' => $already ? 'already' : 'updated',
+                'template' => $template_status,
+            );
         } catch (Exception $e) {
             return $e->getMessage();
         }
+    }
+
+    /**
+     * Force Elementor Full Width template on given page
+     */
+    private function apply_elementor_full_width_template($page_id)
+    {
+        $template_slug = 'elementor_header_footer';
+        $current_template = function_exists('get_page_template_slug')
+            ? get_page_template_slug($page_id)
+            : get_post_meta($page_id, '_wp_page_template', true);
+
+        if ($current_template === $template_slug) {
+            return 'already';
+        }
+
+        $updated = update_post_meta($page_id, '_wp_page_template', $template_slug);
+
+        if ($updated === false) {
+            $verified_template = function_exists('get_page_template_slug')
+                ? get_page_template_slug($page_id)
+                : get_post_meta($page_id, '_wp_page_template', true);
+
+            return ($verified_template === $template_slug) ? 'already' : 'failed';
+        }
+
+        return 'changed';
     }
 
     /**
