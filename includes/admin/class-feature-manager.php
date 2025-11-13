@@ -398,7 +398,7 @@ class FeatureManager
         try {
             // Add SVG support option
             update_option('wp_fast_setup_svg_enabled', '1');
-            
+
             return array(
                 'feature' => 'enable_svg_upload',
                 'success' => true,
