@@ -61,6 +61,7 @@ class SiteSettingsHandler
         try {
             error_log('WP Fast Setup: Processing site settings data');
             $site_name = sanitize_text_field($_POST['nombre_sitio']);
+            $site_tagline = isset($_POST['site_tagline']) ? sanitize_text_field($_POST['site_tagline']) : '';
             $admin_email = sanitize_email($_POST['admin_email']);
             $site_language = sanitize_text_field($_POST['idioma_sitio']);
             $site_url = esc_url_raw($_POST['url_sitio']);
@@ -70,6 +71,11 @@ class SiteSettingsHandler
             // Update site name
             if (!empty($site_name)) {
                 update_option('blogname', $site_name);
+            }
+
+            // Update site tagline/description
+            if (isset($_POST['site_tagline'])) {
+                update_option('blogdescription', $site_tagline);
             }
 
             // Update admin email in options and admin user

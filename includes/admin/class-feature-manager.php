@@ -101,6 +101,9 @@ class FeatureManager
             case 'create_admin':
                 return $this->create_admin_user($args);
 
+            case 'enable_svg_upload':
+                return $this->enable_svg_upload();
+
             default:
                 return array(
                     'feature' => $feature,
@@ -381,6 +384,29 @@ class FeatureManager
         } catch (Exception $e) {
             return array(
                 'feature' => 'create_admin',
+                'success' => false,
+                'error' => $e->getMessage()
+            );
+        }
+    }
+
+    /**
+     * Enable SVG file uploads in WordPress media library
+     */
+    private function enable_svg_upload()
+    {
+        try {
+            // Add SVG support option
+            update_option('wp_fast_setup_svg_enabled', '1');
+            
+            return array(
+                'feature' => 'enable_svg_upload',
+                'success' => true,
+                'message' => 'Soporte para archivos SVG habilitado correctamente'
+            );
+        } catch (Exception $e) {
+            return array(
+                'feature' => 'enable_svg_upload',
                 'success' => false,
                 'error' => $e->getMessage()
             );

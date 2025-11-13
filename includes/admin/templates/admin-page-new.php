@@ -715,6 +715,37 @@
         gap: 10px;
         margin-top: 12px;
     }
+
+    /* Grid de 3 columnas para la pestaña de contenido */
+    .wpf-content-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    @media (max-width: 1200px) {
+        .wpf-content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .wpf-content-grid .wpf-card {
+        margin-bottom: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .wpf-content-grid .wpf-card form {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .wpf-content-grid .wpf-button-group {
+        margin-top: auto;
+    }
 </style>
 
 <div class="wpf-setup-wrapper">
@@ -772,6 +803,12 @@
                 <div class="wpf-form-group">
                     <label for="site_name">Nombre del Sitio</label>
                     <input type="text" id="site_name" name="nombre_sitio" value="<?php echo esc_attr($current_site_name); ?>" placeholder="Mi Sitio Web">
+                </div>
+
+                <div class="wpf-form-group">
+                    <label for="site_tagline">Descripción Corta</label>
+                    <input type="text" id="site_tagline" name="site_tagline" value="<?php echo esc_attr(get_bloginfo('description')); ?>" placeholder="Una breve descripción de tu sitio">
+                    <small style="color: var(--wpfs-text-light);">Esta descripción aparece en los resultados de búsqueda y el título del navegador.</small>
                 </div>
 
                 <div class="wpf-form-group">
@@ -845,6 +882,10 @@
                     <div class="wpf-checkbox-item">
                         <input type="checkbox" id="feature_disable_comments" class="wpf-feature-checkbox" name="features[]" value="disable_comments">
                         <label for="feature_disable_comments">🚫 Desactivar comentarios globalmente</label>
+                    </div>
+                    <div class="wpf-checkbox-item">
+                        <input type="checkbox" id="feature_enable_svg" class="wpf-feature-checkbox" name="features[]" value="enable_svg_upload">
+                        <label for="feature_enable_svg">🖼️ Permitir subida de archivos SVG</label>
                     </div>
                     <div class="wpf-checkbox-item">
                         <input type="checkbox" id="feature_create_admin" class="wpf-feature-checkbox" name="features[]" value="create_admin">
@@ -1027,12 +1068,24 @@
 
                 if (!empty($plugin_entries)) {
                     usort($plugin_entries, function ($a, $b) {
+                        // Primero ordenar por tipo: drive (1), local (2), repo (3)
+                        $type_order = array('drive' => 1, 'local' => 2, 'repo' => 3);
+                        $a_type = isset($type_order[$a['effective_type']]) ? $type_order[$a['effective_type']] : 999;
+                        $b_type = isset($type_order[$b['effective_type']]) ? $type_order[$b['effective_type']] : 999;
+
+                        if ($a_type !== $b_type) {
+                            return $a_type - $b_type;
+                        }
+
+                        // Dentro del mismo tipo, ordenar por favoritos
                         if (!empty($a['is_favorite']) && empty($b['is_favorite'])) {
                             return -1;
                         }
                         if (empty($a['is_favorite']) && !empty($b['is_favorite'])) {
                             return 1;
                         }
+
+                        // Finalmente ordenar alfabéticamente por nombre
                         return strcasecmp($a['label'], $b['label']);
                     });
                 }
@@ -1113,7 +1166,7 @@
                     );
 
                     if (empty($entry['is_favorite'])) {
-                        echo '<button type="button" class="add-fav-btn" data-slug="' . esc_attr($entry['slug'] ?: $entry['value']) . '" data-source="' . esc_attr($entry['source']) . '">Añadir a Favoritos</button>';
+                        echo '<button type="button" class="add-fav-btn" onclick="event.stopPropagation();" data-slug="' . esc_attr($entry['slug'] ?: $entry['value']) . '" data-source="' . esc_attr($entry['source']) . '">Añadir a Favoritos</button>';
                     } else {
                         echo '<span class="wpf-favorite-badge">⭐ Favorito</span>';
                     }
@@ -1131,6 +1184,9 @@
                     <button type="submit" name="install_plugins" class="wpf-btn wpf-btn-primary" title="Instalar todos los plugins seleccionados desde el repositorio de WordPress, archivos locales o Google Drive">
                         📦 Instalar Plugins Seleccionados
                     </button>
+                    <a href="<?php echo esc_url(WP_FAST_SETUP_PLUGIN_URL . 'includes/plugins-list.json'); ?>" download="plugins-list.json" class="wpf-btn wpf-btn-secondary" title="Descargar el archivo de configuración de plugins">
+                        💾 Descargar Listado de Plugins
+                    </a>
                 </div>
             </form>
         </div>
@@ -1189,147 +1245,151 @@
             <?php endif; ?>
         </div>
 
-        <div class="wpf-card">
-            <div class="wpf-card-header">
-                <span class="wpf-card-icon">�📄</span>
-                <h2 class="wpf-card-title">Crear Páginas Personalizadas</h2>
+        <!-- Grid de 3 columnas: Páginas, Menús y Homepage -->
+        <div class="wpf-content-grid">
+            <!-- Crear Páginas Personalizadas -->
+            <div class="wpf-card">
+                <div class="wpf-card-header">
+                    <span class="wpf-card-icon">📄</span>
+                    <h2 class="wpf-card-title">Crear Páginas Personalizadas</h2>
+                </div>
+                <p class="wpf-card-description">Crea páginas automáticamente con diferentes plantillas y estructuras</p>
+
+                <form id="content-form" method="post" action="">
+                    <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
+
+                    <div class="wpf-page-creator">
+                        <h4>🎯 Presets de Páginas</h4>
+                        <select id="preset_pages_select" class="wpf-form-group">
+                            <option value="">Seleccione un preset</option>
+                            <option value="base">Base (Inicio, Servicios, Contacto)</option>
+                            <option value="completo">Completo (Inicio, Nosotros, Servicios, Portfolio, Blog, Contacto)</option>
+                            <option value="especial">Especial (Home, About Us, Products, FAQ, Support, Contact)</option>
+                        </select>
+                    </div>
+
+                    <div class="wpf-form-group">
+                        <label for="pages_input">Páginas a Crear</label>
+                        <textarea name="pages_input" id="pages_input" placeholder="Ingrese una página por línea. Si la línea inicia con un espacio, se creará como subpágina de la línea anterior."></textarea>
+                        <small style="color: var(--wpfs-text-light);">Ingrese una página por línea. Si la línea inicia con un espacio, se creará como subpágina de la línea anterior.</small>
+                    </div>
+
+                    <div class="wpf-template-options">
+                        <label>
+                            <input type="radio" name="page_template" value="elementor_header_footer" checked>
+                            🎨 Elementor Full Width
+                        </label>
+                        <label>
+                            <input type="radio" name="page_template" value="default">
+                            📄 Default
+                        </label>
+                    </div>
+
+                    <div class="wpf-button-group">
+                        <button type="submit" name="create_pages" class="wpf-btn wpf-btn-primary" title="Crear páginas nuevas con la plantilla seleccionada sin afectar las existentes" onclick="setPageAction('create')">
+                            📄 Crear Páginas
+                        </button>
+                        <button type="submit" name="delete_and_create_pages" class="wpf-btn wpf-btn-warning" title="Eliminar todas las páginas existentes y crear nuevas con la plantilla seleccionada" onclick="setPageAction('delete')">
+                            🗑️ Borrar y Crear Nuevas
+                        </button>
+                        <button type="submit" name="create_pages_and_menu" class="wpf-btn wpf-btn-success" title="Crear páginas nuevas y agregarlas automáticamente al menú de navegación" onclick="setPageAction('create_menu')">
+                            📄➕ Crear con Menú
+                        </button>
+                        <button type="submit" name="delete_and_create_pages_with_menu" class="wpf-btn wpf-btn-warning" title="Eliminar páginas existentes, crear nuevas y agregarlas al menú de navegación" onclick="setPageAction('delete_menu')">
+                            🗑️➕ Borrar y Crear con Menú
+                        </button>
+                    </div>
+
+                    <!-- Hidden fields for page actions -->
+                    <input type="hidden" name="page_action" id="page_action" value="">
+                    <input type="hidden" name="delete_existing" id="delete_existing" value="0">
+                    <input type="hidden" name="create_menu" id="create_menu" value="0">
+                </form>
             </div>
-            <p class="wpf-card-description">Crea páginas automáticamente con diferentes plantillas y estructuras</p>
 
-            <form id="content-form" method="post" action="">
-                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-
-                <div class="wpf-page-creator">
-                    <h4>🎯 Presets de Páginas</h4>
-                    <select id="preset_pages_select" class="wpf-form-group">
-                        <option value="">Seleccione un preset</option>
-                        <option value="base">Base (Inicio, Servicios, Contacto)</option>
-                        <option value="completo">Completo (Inicio, Nosotros, Servicios, Portfolio, Blog, Contacto)</option>
-                        <option value="especial">Especial (Home, About Us, Products, FAQ, Support, Contact)</option>
-                    </select>
+            <!-- Menu Creation Section -->
+            <div class="wpf-card">
+                <div class="wpf-card-header">
+                    <span class="wpf-card-icon">🍽️</span>
+                    <h2 class="wpf-card-title">Crear Menús de Navegación</h2>
                 </div>
+                <p class="wpf-card-description">Crea menús vacíos para organizar la navegación de tu sitio</p>
 
-                <div class="wpf-form-group">
-                    <label for="pages_input">Páginas a Crear</label>
-                    <textarea name="pages_input" id="pages_input" placeholder="Ingrese una página por línea. Si la línea inicia con un espacio, se creará como subpágina de la línea anterior."></textarea>
-                    <small style="color: var(--wpfs-text-light);">Ingrese una página por línea. Si la línea inicia con un espacio, se creará como subpágina de la línea anterior.</small>
-                </div>
+                <form id="menu-form" method="post" action="">
+                    <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
 
-                <div class="wpf-template-options">
-                    <label>
-                        <input type="radio" name="page_template" value="elementor_header_footer" checked>
-                        🎨 Elementor Full Width
-                    </label>
-                    <label>
-                        <input type="radio" name="page_template" value="default">
-                        📄 Default
-                    </label>
-                </div>
+                    <div class="wpf-form-group">
+                        <label for="menu_presets_select">Presets de Menús</label>
+                        <select id="menu_presets_select">
+                            <option value="">-- Seleccionar preset --</option>
+                            <option value="legal_footer_main">Legal + Footer + Principal</option>
+                        </select>
+                        <small style="color: var(--wpfs-text-light);">Elige un preset para autocompletar la lista de menús sugeridos.</small>
+                    </div>
 
-                <div class="wpf-button-group">
-                    <button type="submit" name="create_pages" class="wpf-btn wpf-btn-primary" title="Crear páginas nuevas con la plantilla seleccionada sin afectar las existentes" onclick="setPageAction('create')">
-                        📄 Crear Páginas
-                    </button>
-                    <button type="submit" name="delete_and_create_pages" class="wpf-btn wpf-btn-warning" title="Eliminar todas las páginas existentes y crear nuevas con la plantilla seleccionada" onclick="setPageAction('delete')">
-                        🗑️ Borrar y Crear Nuevas
-                    </button>
-                    <button type="submit" name="create_pages_and_menu" class="wpf-btn wpf-btn-success" title="Crear páginas nuevas y agregarlas automáticamente al menú de navegación" onclick="setPageAction('create_menu')">
-                        📄➕ Crear con Menú
-                    </button>
-                    <button type="submit" name="delete_and_create_pages_with_menu" class="wpf-btn wpf-btn-warning" title="Eliminar páginas existentes, crear nuevas y agregarlas al menú de navegación" onclick="setPageAction('delete_menu')">
-                        🗑️➕ Borrar y Crear con Menú
-                    </button>
-                </div>
+                    <div class="wpf-form-group">
+                        <label for="menus_input">Menús a Crear</label>
+                        <textarea name="menus_input" id="menus_input" placeholder="Ingrese un menú por línea."></textarea>
+                        <small style="color: var(--wpfs-text-light);">Ingrese un menú por línea. Cada línea será un menú separado.</small>
+                    </div>
 
-                <!-- Hidden fields for page actions -->
-                <input type="hidden" name="page_action" id="page_action" value="">
-                <input type="hidden" name="delete_existing" id="delete_existing" value="0">
-                <input type="hidden" name="create_menu" id="create_menu" value="0">
-            </form>
-        </div>
-
-        <!-- Menu Creation Section -->
-        <div class="wpf-card">
-            <div class="wpf-card-header">
-                <span class="wpf-card-icon">🍽️</span>
-                <h2 class="wpf-card-title">Crear Menús de Navegación</h2>
+                    <div class="wpf-button-group">
+                        <button type="submit" name="create_menus" class="wpf-btn wpf-btn-primary" title="Crear menús vacíos">
+                            🍽️ Crear Menús
+                        </button>
+                    </div>
+                </form>
             </div>
-            <p class="wpf-card-description">Crea menús vacíos para organizar la navegación de tu sitio</p>
 
-            <form id="menu-form" method="post" action="">
-                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-
-                <div class="wpf-form-group">
-                    <label for="menu_presets_select">Presets de Menús</label>
-                    <select id="menu_presets_select">
-                        <option value="">-- Seleccionar preset --</option>
-                        <option value="legal_footer_main">Legal + Footer + Principal</option>
-                    </select>
-                    <small style="color: var(--wpfs-text-light);">Elige un preset para autocompletar la lista de menús sugeridos.</small>
+            <!-- Homepage Settings Section -->
+            <div class="wpf-card">
+                <div class="wpf-card-header">
+                    <span class="wpf-card-icon">🏠</span>
+                    <h2 class="wpf-card-title">Configurar Página Principal y Blogs</h2>
                 </div>
+                <p class="wpf-card-description">Establece qué páginas usar como página principal y página de blogs</p>
 
-                <div class="wpf-form-group">
-                    <label for="menus_input">Menús a Crear</label>
-                    <textarea name="menus_input" id="menus_input" placeholder="Ingrese un menú por línea."></textarea>
-                    <small style="color: var(--wpfs-text-light);">Ingrese un menú por línea. Cada línea será un menú separado.</small>
-                </div>
+                <form id="homepage-form" method="post" action="">
+                    <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
 
-                <div class="wpf-button-group">
-                    <button type="submit" name="create_menus" class="wpf-btn wpf-btn-primary" title="Crear menús vacíos">
-                        🍽️ Crear Menús
-                    </button>
-                </div>
-            </form>
-        </div>
+                    <div class="wpf-form-group">
+                        <label for="homepage_page">Página Principal</label>
+                        <select name="homepage_page" id="homepage_page">
+                            <option value="">-- Seleccionar Página --</option>
+                            <?php
+                            $pages = get_pages();
+                            $current_homepage = get_option('page_on_front');
+                            foreach ($pages as $page) {
+                                $selected = ($page->ID == $current_homepage) ? 'selected' : '';
+                                echo '<option value="' . esc_attr($page->ID) . '" ' . $selected . '>' . esc_html($page->post_title) . '</option>';
+                            }
+                            ?>
+                        </select>
+                        <small style="color: var(--wpfs-text-light);">Selecciona la página que quieres usar como página principal de tu sitio</small>
+                    </div>
 
-        <!-- Homepage Settings Section -->
-        <div class="wpf-card">
-            <div class="wpf-card-header">
-                <span class="wpf-card-icon">🏠</span>
-                <h2 class="wpf-card-title">Configurar Página Principal y Blogs</h2>
+                    <div class="wpf-form-group">
+                        <label for="blog_page">Página de Blogs</label>
+                        <select name="blog_page" id="blog_page">
+                            <option value="">-- Seleccionar Página --</option>
+                            <?php
+                            $current_blogpage = get_option('page_for_posts');
+                            foreach ($pages as $page) {
+                                $selected = ($page->ID == $current_blogpage) ? 'selected' : '';
+                                echo '<option value="' . esc_attr($page->ID) . '" ' . $selected . '>' . esc_html($page->post_title) . '</option>';
+                            }
+                            ?>
+                        </select>
+                        <small style="color: var(--wpfs-text-light);">Selecciona la página donde se mostrarán tus entradas de blog</small>
+                    </div>
+
+                    <div class="wpf-button-group">
+                        <button type="submit" name="set_homepage" class="wpf-btn wpf-btn-primary" title="Establecer las páginas seleccionadas como página principal y página de blogs">
+                            🏠 Establecer Páginas
+                        </button>
+                    </div>
+                </form>
             </div>
-            <p class="wpf-card-description">Establece qué páginas usar como página principal y página de blogs</p>
-
-            <form id="homepage-form" method="post" action="">
-                <?php wp_nonce_field('wp_fast_setup_action', 'wp_fast_setup_nonce'); ?>
-
-                <div class="wpf-form-group">
-                    <label for="homepage_page">Página Principal</label>
-                    <select name="homepage_page" id="homepage_page">
-                        <option value="">-- Seleccionar Página --</option>
-                        <?php
-                        $pages = get_pages();
-                        $current_homepage = get_option('page_on_front');
-                        foreach ($pages as $page) {
-                            $selected = ($page->ID == $current_homepage) ? 'selected' : '';
-                            echo '<option value="' . esc_attr($page->ID) . '" ' . $selected . '>' . esc_html($page->post_title) . '</option>';
-                        }
-                        ?>
-                    </select>
-                    <small style="color: var(--wpfs-text-light);">Selecciona la página que quieres usar como página principal de tu sitio</small>
-                </div>
-
-                <div class="wpf-form-group">
-                    <label for="blog_page">Página de Blogs</label>
-                    <select name="blog_page" id="blog_page">
-                        <option value="">-- Seleccionar Página --</option>
-                        <?php
-                        $current_blogpage = get_option('page_for_posts');
-                        foreach ($pages as $page) {
-                            $selected = ($page->ID == $current_blogpage) ? 'selected' : '';
-                            echo '<option value="' . esc_attr($page->ID) . '" ' . $selected . '>' . esc_html($page->post_title) . '</option>';
-                        }
-                        ?>
-                    </select>
-                    <small style="color: var(--wpfs-text-light);">Selecciona la página donde se mostrarán tus entradas de blog</small>
-                </div>
-
-                <div class="wpf-button-group">
-                    <button type="submit" name="set_homepage" class="wpf-btn wpf-btn-primary" title="Establecer las páginas seleccionadas como página principal y página de blogs">
-                        🏠 Establecer Páginas
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
     <!-- Tab Content: Templates -->

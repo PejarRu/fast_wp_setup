@@ -997,7 +997,7 @@ const initWPFastSetup = () => {
                         const imported = data.data && typeof data.data.imported_count !== 'undefined' ? data.data.imported_count : '';
                         importKitLogosStatus.textContent = imported ? `Se importaron ${imported} elementos del kit.` : 'Logos importados correctamente.';
                     }
-                    alert('✅ Imágenes del Kit Digital importadas a la biblioteca.');
+                    // Solo mostrar mensaje de éxito sin alert
                 } else {
                     if (importKitLogosStatus) {
                         importKitLogosStatus.style.color = '#b32d2e';
