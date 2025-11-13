@@ -1478,12 +1478,12 @@
                             <div class="wpf-legal-page">
                                 <label for="<?php echo esc_attr($checkbox_id); ?>">
                                     <input type="checkbox"
-                                           name="legal_page_ids[]"
-                                           id="<?php echo esc_attr($checkbox_id); ?>"
-                                           value="<?php echo esc_attr($legal_page['id']); ?>"
-                                           <?php checked($is_prechecked); ?>
-                                           data-recommended="<?php echo !empty($legal_page['recommended']) ? '1' : '0'; ?>"
-                                           data-noindex="<?php echo !empty($legal_page['already_noindex']) ? '1' : '0'; ?>">
+                                        name="legal_page_ids[]"
+                                        id="<?php echo esc_attr($checkbox_id); ?>"
+                                        value="<?php echo esc_attr($legal_page['id']); ?>"
+                                        <?php checked($is_prechecked); ?>
+                                        data-recommended="<?php echo !empty($legal_page['recommended']) ? '1' : '0'; ?>"
+                                        data-noindex="<?php echo !empty($legal_page['already_noindex']) ? '1' : '0'; ?>">
                                     <span><?php echo esc_html($legal_page['title']); ?></span>
                                 </label>
                                 <div class="wpf-legal-tags">
