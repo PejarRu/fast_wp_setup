@@ -82,9 +82,10 @@ class SiteSettingsHandler
             }
 
             // Update admin email in options and admin user
+            $admin_email_status = null;
             if (!empty($admin_email) && is_email($admin_email)) {
                 $previous_admin_email = get_option('admin_email');
-                update_option('admin_email', $admin_email);
+                $admin_email_status = $this->force_update_admin_email_option($admin_email, $previous_admin_email);
 
                 // Update admin user's email (not just current user)
                 $this->update_admin_user_email($admin_email, $previous_admin_email);
@@ -198,6 +199,7 @@ class SiteSettingsHandler
                 'message' => 'Configuración del sitio guardada correctamente',
                 'site_name_updated' => !empty($site_name),
                 'admin_email_updated' => !empty($admin_email),
+                'admin_email_status' => $admin_email_status,
                 'site_url_updated' => !empty($site_url),
                 'language_updated' => $language_changed,
                 'language_available' => $language_available,
@@ -400,6 +402,63 @@ class SiteSettingsHandler
         }
     }
 
+    /**
+     * Force updates the admin_email option bypassing WordPress confirmation flow.
+     *
+     * @param string      $new_email     The email to set.
+     * @param string|null $previous_email The previous admin email if already known.
+     *
+     * @return array Result payload with success flag and contextual info.
+     */
+    private function force_update_admin_email_option($new_email, $previous_email = null)
+    {
+        global $wpdb;
+
+        if (empty($new_email) || !is_email($new_email)) {
+            return array(
+                'success' => false,
+                'message' => __('Dirección de correo no válida.', 'fast-wp-setup'),
+            );
+        }
+
+        if ($previous_email === null) {
+            $previous_email = get_option('admin_email');
+        }
+
+        if ($previous_email === $new_email) {
+            return array(
+                'success' => true,
+                'message'  => __('El correo ya estaba configurado.', 'fast-wp-setup'),
+                'previous' => $previous_email,
+                'current'  => $new_email,
+            );
+        }
+
+        $updated = $wpdb->update(
+            $wpdb->options,
+            array('option_value' => $new_email),
+            array('option_name'  => 'admin_email')
+        );
+
+        if ($updated === false) {
+            return array(
+                'success' => false,
+                'message'  => __('No se pudo actualizar el correo de administrador.', 'fast-wp-setup'),
+                'previous' => $previous_email,
+            );
+        }
+
+        delete_option('adminhash');
+        delete_option('new_admin_email');
+        wp_cache_delete('alloptions', 'options');
+
+        return array(
+            'success' => true,
+            'message'  => __('Correo de administrador actualizado directamente.', 'fast-wp-setup'),
+            'previous' => $previous_email,
+            'current'  => $new_email,
+        );
+    }
     /**
      * Synchronize administrator/user locales with the selected site locale so the dashboard reflects the change immediately
      */
